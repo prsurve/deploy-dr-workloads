@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Table Example with Bootstrap</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Longevity Custer DRPC data</h1>
+        
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>DRPC NAME</th>
+                    <th>DRPC Current Status</th>
+                    <th>Workload Namespace</th>
+                    <th>Last Sync</th>
+                    <th>Sync Interval</th>
+                    <th>Sync Difference</th>
+                    
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+            <td>cli-1-sub-busybox-mix-workload-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-1-sub-busybox-mix-workload-1</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">224.638678</td>
+    </tr><tr>
+            <td>cli-2-sub-busybox-cephfs-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-2-sub-busybox-cephfs-1</td>
+            <td>2025-09-24T19:05:23Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">204.650202</td>
+    </tr><tr>
+            <td>cli-1-imp-busybox-cephfs-1</td>
+            <td>Deployed</td>
+            <td>cli-1-imp-busybox-cephfs-1</td>
+            <td>2025-09-24T19:05:30Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">198.712961</td>
+    </tr><tr>
+            <td>cli-1-imp-busybox-rbd-1</td>
+            <td>Deployed</td>
+            <td>cli-1-imp-busybox-rbd-1</td>
+            <td>2025-09-24T19:05:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">225.763536</td>
+    </tr><tr>
+            <td>cli-1-imp-mysql-cephfs-1</td>
+            <td>Deployed</td>
+            <td>cli-1-imp-mysql-cephfs-1</td>
+            <td>2025-09-24T19:05:29Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">201.768926</td>
+    </tr><tr>
+            <td>cli-2-imp-busybox-rbd-1</td>
+            <td>Deployed</td>
+            <td>cli-2-imp-busybox-rbd-1</td>
+            <td>2025-09-24T19:05:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">227.776371</td>
+    </tr><tr>
+            <td>cli-2-imp-busybox-rbd-2</td>
+            <td>Deployed</td>
+            <td>cli-2-imp-busybox-rbd-2</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">230.775391</td>
+    </tr><tr>
+            <td>imp-busybox-mix-workload-1</td>
+            <td>Deployed</td>
+            <td>imp-busybox-mix-workload-1</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">233.819274</td>
+    </tr><tr>
+            <td>imp-busybox-mix-workload-2</td>
+            <td>Deployed</td>
+            <td>imp-busybox-mix-workload-2</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">234.881763</td>
+    </tr><tr>
+            <td>imp-busybox-rbd-1</td>
+            <td>FailedOver</td>
+            <td>imp-busybox-rbd-1</td>
+            <td>=====NO DATA Found===</td>
+            <td>5</td>
+            <td style="color: #FF5733;">202.94976</td>
+    </tr><tr>
+            <td>imp-busybox-rbd-2</td>
+            <td>Deployed</td>
+            <td>imp-busybox-rbd-2</td>
+            <td>2025-09-24T19:00:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">533.950731</td>
+    </tr><tr>
+            <td>imp-busybox-rbd-3</td>
+            <td>Deployed</td>
+            <td>imp-busybox-rbd-3</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">237.011119</td>
+    </tr><tr>
+            <td>imp-busybox-rbd-4</td>
+            <td>Deployed</td>
+            <td>imp-busybox-rbd-4</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">238.08179</td>
+    </tr><tr>
+            <td>imp-mysql-cephfs-1</td>
+            <td>Deployed</td>
+            <td>imp-mysql-cephfs-1</td>
+            <td>2025-09-24T19:05:23Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">216.135692</td>
+    </tr><tr>
+            <td>imp-mysql-rbd-1</td>
+            <td>Deployed</td>
+            <td>imp-mysql-rbd-1</td>
+            <td>2025-09-24T19:05:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">236.114712</td>
+    </tr><tr>
+            <td>imp-mysql-rbd-2</td>
+            <td>Deployed</td>
+            <td>imp-mysql-rbd-2</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">239.186233</td>
+    </tr><tr>
+            <td>imp-vm-rbd-1</td>
+            <td>Deployed</td>
+            <td>imp-vm-rbd-1</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">242.225839</td>
+    </tr><tr>
+            <td>ap-bb-rbd-1-cg-placement-drpc</td>
+            <td>Deployed</td>
+            <td>ap-bb-rbd-1-cg</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">243.27369</td>
+    </tr><tr>
+            <td>ap-bb-rbd-2-cg-placement-drpc</td>
+            <td>Deployed</td>
+            <td>ap-bb-rbd-2-cg</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">244.268546</td>
+    </tr><tr>
+            <td>app-busybox-cephfs-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-cephfs-1</td>
+            <td>2025-09-24T19:05:44Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">201.279899</td>
+    </tr><tr>
+            <td>app-busybox-cephfs-2-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-cephfs-2</td>
+            <td>2025-09-24T19:05:44Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">202.297644</td>
+    </tr><tr>
+            <td>app-busybox-rbd-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-rbd-1</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">247.401748</td>
+    </tr><tr>
+            <td>app-busybox-rbd-2-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-rbd-2</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">248.430714</td>
+    </tr><tr>
+            <td>app-busybox-rbd-3-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-rbd-3</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">249.527048</td>
+    </tr><tr>
+            <td>app-busybox-rbd-4-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-busybox-rbd-4</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">250.54941</td>
+    </tr><tr>
+            <td>app-mysql-cephfs-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-mysql-cephfs-1</td>
+            <td>2025-09-24T19:05:33Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">218.567293</td>
+    </tr><tr>
+            <td>app-mysql-rbd-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-mysql-rbd-1</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">252.59084000000001</td>
+    </tr><tr>
+            <td>app-mysql-rbd-2-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-mysql-rbd-2</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">251.621273</td>
+    </tr><tr>
+            <td>app-vm-rbd-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-vm-rbd-1</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">252.670514</td>
+    </tr><tr>
+            <td>app-vm-rbd-2-placement-drpc</td>
+            <td>Deployed</td>
+            <td>app-vm-rbd-2</td>
+            <td>2025-09-24T19:05:02Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">253.659263</td>
+    </tr><tr>
+            <td>cli-1-ap-bb-rbd-4-cg-placs-drpc</td>
+            <td>Deployed</td>
+            <td>cli-1-ap-bb-rbd-4-cg</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">256.718461</td>
+    </tr><tr>
+            <td>cli-1-app-busybox-rbd-5-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-1-app-busybox-rbd-5</td>
+            <td>2025-09-24T19:05:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">253.727628</td>
+    </tr><tr>
+            <td>cli-2-ap-bb-rbd-3-cg-placs-drpc</td>
+            <td>Deployed</td>
+            <td>cli-2-ap-bb-rbd-3-cg</td>
+            <td>2025-09-24T19:05:00Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">258.725776</td>
+    </tr><tr>
+            <td>cli-2-app-busybox-mix-workload-1-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-2-app-busybox-mix-workload-1</td>
+            <td>2025-09-24T19:05:05Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">254.740436</td>
+    </tr><tr>
+            <td>cli-2-app-busybox-rbd-6-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-2-app-busybox-rbd-6</td>
+            <td>2025-09-24T19:00:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">556.816157</td>
+    </tr><tr>
+            <td>cli-2-app-mysql-rbd-3-placement-drpc</td>
+            <td>Deployed</td>
+            <td>cli-2-app-mysql-rbd-3</td>
+            <td>2025-09-24T19:05:04Z</td>
+            <td>5</td>
+            <td style="color: #33ff77;">257.86729</td>
+    </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Include Bootstrap JavaScript (optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

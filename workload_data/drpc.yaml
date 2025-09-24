@@ -1,0 +1,32 @@
+apiVersion: ramendr.openshift.io/v1alpha1
+kind: DRPlacementControl
+metadata:
+  name: PLACEHOLDER
+  namespace: openshift-dr-ops
+spec:
+  drPolicyRef:
+    apiVersion: ramendr.openshift.io/v1alpha1
+    kind: DRPolicy
+    name: PLACEHOLDER
+  placementRef:
+    apiVersion: cluster.open-cluster-management.io/v1beta1
+    kind: Placement
+    name: PLACEHOLDER
+    namespace: openshift-dr-ops
+  preferredCluster: PLACEHOLDER
+  protectedNamespaces:
+    - PLACEHOLDER
+  kubeObjectProtection:
+    captureInterval: 4m
+    kubeObjectSelector:
+      matchExpressions:
+        - key: workloadpattern
+          operator: In
+          values:
+            - simple_io
+  pvcSelector:
+    matchExpressions:
+      - key: workloadpattern
+        operator: In
+        values:
+          - simple_io_pvc
