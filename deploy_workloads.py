@@ -427,6 +427,7 @@ def create_vrgc(args):
     update_vrgc_from_vrc(vrgc_yaml_dict, vrc_c2_dict)
     ensure_vrgc_exists(args.c2_kubeconfig, vrgc_yaml_dict, "workload_data/vrgc-vm.yaml")
     
+def validate_drpolicy(args):
 
 def main():
     """Main function to execute workload deployment."""
@@ -440,6 +441,8 @@ def main():
         sys.exit("❌'vm' workload is not supported with 'cephfs' PVC type.")
     if args.cg:
         create_vrgc(args)
+    
+    validate_drpolicy(args.drpolicy_name)
     
 
     workload_dict = get_workload_path(args.workload_pvc_type, args.workload)
@@ -455,6 +458,7 @@ def main():
         result = subprocess.run(["oc", "get", "drpolicy", "--no-headers"], capture_output=True, text=True, check=True)
         policy_names = [line.split()[0] for line in result.stdout.strip().split('\n') if line.strip()]
     else:
+        validate_drpolicy(args.drpolicy_name)
         policy_names = [args.drpolicy_name]
 
     clusterset = args.clusterset or get_clusterset_name(c1)

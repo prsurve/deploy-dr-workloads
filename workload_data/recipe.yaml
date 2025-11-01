@@ -1,0 +1,60 @@
+apiVersion: ramendr.openshift.io/v1alpha1
+kind: Recipe
+metadata:
+  name: busybox-dict-1-rbd-recipe-ns
+spec:
+  appType: busybox
+  groups:
+  - backupRef: busybox-dict-1-rbd-recipe-ns
+    excludedResourceTypes:
+    - events
+    - event.events.k8s.io
+    - persistentvolumes
+    - replicaset
+    - persistentvolumeclaims
+    - pods
+    includedNamespaces:
+    - busybox-dict-1-rbd-recipe-ns
+    labelSelector:
+      matchExpressions:
+      - key: workloadpattern
+        operator: In
+        values:
+        - simple_io
+    name: busybox-dict-1-rbd-recipe-ns
+    type: resource
+  hooks:
+  - chks:
+    - condition: '{$.spec.replicas} == {$.status.readyReplicas}'
+      name: stateReady
+      onError: fail
+      timeout: 900
+    name: deployment-check
+    nameSelector: busybox-*
+    namespace: busybox-dict-1-rbd-recipe-ns
+    onError: fail
+    selectResource: deployment
+    timeout: 800
+    type: check
+  volumes:
+    includedNamespaces:
+    - busybox-dict-1-rbd-recipe-ns
+    labelSelector:
+      matchExpressions:
+      - key: appname
+        operator: In
+        values:
+        - busybox_app1
+    name: mypvc
+    type: volume
+  workflows:
+  - failOn: any-error
+    name: backup
+    sequence:
+    - hook: deployment-check/stateReady
+    - group: busybox-dict-1-rbd-recipe-ns
+  - failOn: any-error
+    name: restore
+    sequence:
+    - group: busybox-dict-1-rbd-recipe-ns
+    - hook: deployment-check/stateReady
