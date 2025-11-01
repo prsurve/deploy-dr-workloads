@@ -427,7 +427,17 @@ def create_vrgc(args):
     update_vrgc_from_vrc(vrgc_yaml_dict, vrc_c2_dict)
     ensure_vrgc_exists(args.c2_kubeconfig, vrgc_yaml_dict, "workload_data/vrgc-vm.yaml")
     
-def validate_drpolicy(args):
+def validate_drpolicy(drpolicy_name):
+    """Valdiate given drpolicy """
+    try:
+        subprocess.run(["oc", "get", "drpolicy", f"{drpolicy_name}", "--no-headers"], capture_output=True, text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr.strip()
+        if "Error from server (NotFound):" in stderr or "not found" in stderr:
+            sys.exit(f"❌ Given Drpolicy:- {drpolicy_name} does not exisits")
+        else:
+            sys.exit(f"❌ An error occurred validating drpolicy name: {e.stderr}")
+
 
 def main():
     """Main function to execute workload deployment."""
@@ -442,9 +452,6 @@ def main():
     if args.cg:
         create_vrgc(args)
     
-    validate_drpolicy(args.drpolicy_name)
-    
-
     workload_dict = get_workload_path(args.workload_pvc_type, args.workload)
     workload_path = workload_dict.get("workload_path")
     
