@@ -1,11 +1,11 @@
 apiVersion: ramendr.openshift.io/v1alpha1
 kind: Recipe
 metadata:
-  name: busybox-dict-1-rbd-recipe-ns
+  name: cli-c6-imp-busybox-rbd-rp-4-cg
 spec:
   appType: busybox
   groups:
-  - backupRef: busybox-dict-1-rbd-recipe-ns
+  - backupRef: cli-c6-imp-busybox-rbd-rp-4-cg
     excludedResourceTypes:
     - events
     - event.events.k8s.io
@@ -14,14 +14,14 @@ spec:
     - persistentvolumeclaims
     - pods
     includedNamespaces:
-    - busybox-dict-1-rbd-recipe-ns
+    - cli-c6-imp-busybox-rbd-rp-4-cg
     labelSelector:
       matchExpressions:
       - key: workloadpattern
         operator: In
         values:
         - simple_io
-    name: busybox-dict-1-rbd-recipe-ns
+    name: cli-c6-imp-busybox-rbd-rp-4-cg
     type: resource
   hooks:
   - chks:
@@ -31,20 +31,20 @@ spec:
       timeout: 900
     name: deployment-check
     nameSelector: busybox-*
-    namespace: busybox-dict-1-rbd-recipe-ns
+    namespace: cli-c6-imp-busybox-rbd-rp-4-cg
     onError: fail
     selectResource: deployment
     timeout: 800
     type: check
   volumes:
     includedNamespaces:
-    - busybox-dict-1-rbd-recipe-ns
+    - cli-c6-imp-busybox-rbd-rp-4-cg
     labelSelector:
       matchExpressions:
-      - key: appname
+      - key: workloadpattern
         operator: In
         values:
-        - busybox_app1
+        - simple_io_pvc
     name: mypvc
     type: volume
   workflows:
@@ -52,9 +52,9 @@ spec:
     name: backup
     sequence:
     - hook: deployment-check/stateReady
-    - group: busybox-dict-1-rbd-recipe-ns
+    - group: cli-c6-imp-busybox-rbd-rp-4-cg
   - failOn: any-error
     name: restore
     sequence:
-    - group: busybox-dict-1-rbd-recipe-ns
+    - group: cli-c6-imp-busybox-rbd-rp-4-cg
     - hook: deployment-check/stateReady

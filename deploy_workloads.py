@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument('-cg', type=bool, default=False, help='Consistency Group')
     parser.add_argument('-workload', type=str, default="busybox", choices=['busybox', 'vm', 'mysql'], help='Workload That you want to deploy')
     parser.add_argument('-ns_dr_prefix', type=str, default=False, help='Name to add as prefix')
+    parser.add_argument('-recipe', type=bool, default=False, help='Protect discovered based workload using recipe')
+
     return parser.parse_args()
 
 
@@ -240,7 +242,7 @@ def update_sub_yaml(sub_data, pvc_type, cluster_set, deploy_on, c1, c2, counter,
     return sub_data
 
 
-def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy_on, protect_workload, drpolicy_name, c1_dict, c2_dict, cg, workload_dict,ns_dr_prefix):
+def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy_on, protect_workload, drpolicy_name, c1_dict, c2_dict, cg, workload_dict,ns_dr_prefix, recipe):
     logger.info(f"Starting to deploy discovered apps for {pvc_type} workload. Counter: {counter}")
     
     try:
@@ -248,11 +250,14 @@ def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy
         
         namespace_name_suffix=""
         ns_dr_prf=""
+        recipe_prf=""
         if cg:
             namespace_name_suffix="-cg"
         if ns_dr_prefix:
             ns_dr_prf = ns_dr_prefix+"-"
-        namespace_name = f"{ns_dr_prf}imp-{workload_dict.get('workload')}-{pvc_type}-{counter}{namespace_name_suffix}"
+        if recipe:
+            recipe_prf = recipe_prf+"rp"
+        namespace_name = f"{ns_dr_prf}imp-{workload_dict.get('workload')}-{pvc_type}-{recipe_prf}-{counter}{namespace_name_suffix}"
         logger.info(f"Creating project on cluster {c1_dict.get('cluster_name')} for {pvc_type}-{counter}")
         cmd = ["oc", "--kubeconfig", c1_dict.get("kubeconfig"), "new-project", namespace_name]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -293,13 +298,45 @@ def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy
             drpc_yaml_dict["spec"]["placementRef"]["name"]=f"{namespace_name}-placs-1"
             drpc_yaml_dict["spec"]["preferredCluster"] = c1_dict.get("cluster_name") if deploy_on else selected_cluster.get('cluster_name')
             drpc_yaml_dict["spec"]["protectedNamespaces"][0]=namespace_name
-            drpc_yaml_dict["spec"]["kubeObjectProtection"]["kubeObjectSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pod_selector_key")
-            drpc_yaml_dict["spec"]["kubeObjectProtection"]["kubeObjectSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pod_selector_value")
-            drpc_yaml_dict["spec"]["pvcSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pvc_selector_key")
-            drpc_yaml_dict["spec"]["pvcSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pvc_selector_value")
+            
+            if not recipe:
+                drpc_yaml_dict["spec"]["pvcSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pvc_selector_key")
+                drpc_yaml_dict["spec"]["pvcSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pvc_selector_value")
+                drpc_yaml_dict["spec"]["kubeObjectProtection"]["kubeObjectSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pod_selector_key")
+                drpc_yaml_dict["spec"]["kubeObjectProtection"]["kubeObjectSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pod_selector_value")
+            else:
+                drpc_yaml_dict["spec"]["pvcSelector"]= {}
+                drpc_yaml_dict["spec"]["kubeObjectProtection"].setdefault("recipeRef", {})["name"] = namespace_name
+                drpc_yaml_dict["spec"]["kubeObjectProtection"]["recipeRef"]["namespace"]=namespace_name
+                del drpc_yaml_dict["spec"]["kubeObjectProtection"]["kubeObjectSelector"]
+            
             if cg:
                 drpc_yaml_dict["metadata"].setdefault("annotations", {}).setdefault("drplacementcontrol.ramendr.openshift.io/is-cg-enabled", "true")
             combined_dict = [placement_yaml_dict, drpc_yaml_dict]
+            if recipe:
+                yaml_file = str(Path(f"../workload_data/recipe.yaml"))
+                recipe_yaml_dict = load_yaml_file(yaml_file)[0]
+
+                recipe_yaml_dict["metadata"]["name"] = namespace_name
+                recipe_yaml_dict["spec"]["appType"]=workload_dict.get('workload')
+                recipe_yaml_dict["spec"]["groups"][0]["backupRef"]=namespace_name
+                recipe_yaml_dict["spec"]["groups"][0]["includedNamespaces"] = [namespace_name]
+                recipe_yaml_dict["spec"]["groups"][0]["name"] = namespace_name
+                recipe_yaml_dict["spec"]["groups"][0]["labelSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pod_selector_key")
+                recipe_yaml_dict["spec"]["groups"][0]["labelSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pod_selector_value")
+                recipe_yaml_dict["spec"]["workflows"][0]["sequence"][1]["group"] = namespace_name
+                recipe_yaml_dict["spec"]["workflows"][1]["sequence"][0]["group"] = namespace_name
+                recipe_yaml_dict["spec"]["hooks"][0]["namespace"] = namespace_name
+                recipe_yaml_dict["spec"]["hooks"][0]["nameSelector"] = workload_dict.get('workload')+"-*"
+                recipe_yaml_dict["spec"]["volumes"]["includedNamespaces"] = [namespace_name]
+                recipe_yaml_dict["spec"]["volumes"]["labelSelector"]["matchExpressions"][0]["key"]=workload_dict.get("workload_pvc_selector_key")
+                recipe_yaml_dict["spec"]["volumes"]["labelSelector"]["matchExpressions"][0]["values"][0]=workload_dict.get("workload_pvc_selector_value")
+                write_output_yaml([recipe_yaml_dict], "../workload_data/recipe.yaml")
+                create_resource(c1_dict.get("kubeconfig"),c1_dict.get('cluster_name'),"../workload_data/recipe.yaml", "recipe")
+                create_resource(c2_dict.get("kubeconfig"),c2_dict.get('cluster_name'),"../workload_data/recipe.yaml", "recipe")
+
+
+                
         if workload_dict.get('workload') == "vm":
             
             yaml_file = str(Path(f"../workload_data/vm-secret.yaml"))
@@ -339,12 +376,6 @@ def clone_and_checkout(repo_url, clone_path):
         logger.error(f"Failed to clone repository: {e.stderr}")
         raise
 
-
-
-# def write_output_yaml(data, output_path):
-#     """Write YAML data to a file."""
-#     with open(output_path, 'w') as outfile:
-#         yaml.dump_all(data, outfile)
 
 def write_output_yaml(data, output_path):
     """Write YAML data (single or multiple docs) to a file."""
@@ -434,7 +465,7 @@ def validate_drpolicy(drpolicy_name):
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.strip()
         if "Error from server (NotFound):" in stderr or "not found" in stderr:
-            sys.exit(f"❌ Given Drpolicy:- {drpolicy_name} does not exisits")
+            sys.exit(f"❌ Given Drpolicy:- {drpolicy_name} does not exisits {e.stderr}")
         else:
             sys.exit(f"❌ An error occurred validating drpolicy name: {e.stderr}")
 
@@ -444,13 +475,19 @@ def main():
     args = parse_args()
     if args.workload_pvc_type == "mix":
         args.workload_pvc_type="mix-workload"
+    args.output_dir = "output_data/"+args.output_dir
+    print(f"=================={args.output_dir}============")
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    print(f"=================={args.output_dir}============")
     if args.cg and args.workload_pvc_type == "cephfs":
         sys.exit("❌ Cephfs with CG is not supported")
     if args.workload_pvc_type=="cephfs" and args.workload=="vm":
         sys.exit("❌'vm' workload is not supported with 'cephfs' PVC type.")
     if args.cg:
         create_vrgc(args)
+    
+    if args.recipe and args.workload_type in ("appset", "sub"):
+        sys.exit(f"❌ 'recipe' does not work with {args.workload_type}.")
     
     workload_dict = get_workload_path(args.workload_pvc_type, args.workload)
     workload_path = workload_dict.get("workload_path")
@@ -518,7 +555,7 @@ def main():
             dynamic_i = current_count + i
 
             
-            updated_yaml = deploy_discovered_apps(dynamic_i, workload_path, args.workload_pvc_type, clusterset, args.deploy_on, args.protect_workload, policy_name, c1_dict, c2_dict, args.cg, workload_dict, args.ns_dr_prefix)
+            updated_yaml = deploy_discovered_apps(dynamic_i, workload_path, args.workload_pvc_type, clusterset, args.deploy_on, args.protect_workload, policy_name, c1_dict, c2_dict, args.cg, workload_dict, args.ns_dr_prefix, args.recipe)
         # if args.workload_type != "dist":
         # all_output_yaml.extend(updated_yaml)
         if isinstance(updated_yaml, list):
