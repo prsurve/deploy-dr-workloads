@@ -64,6 +64,7 @@ share/python-wheels/
 MANIFEST
 Output.html
 ocs-workloads
+output_data
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
