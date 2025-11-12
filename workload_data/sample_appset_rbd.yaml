@@ -26,7 +26,7 @@ spec:
       sources:
         - repositoryType: git
           repoURL: https://github.com/red-hat-storage/ocs-workloads.git
-          targetRevision: less_workload_rbd
+          targetRevision: less_workload
           path: rdr/busybox/rbd/workloads/app-busybox-1
       destination:
         namespace: PLACEHOLDER-4

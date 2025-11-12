@@ -1,11 +1,11 @@
 apiVersion: ramendr.openshift.io/v1alpha1
 kind: Recipe
 metadata:
-  name: cli-c6-imp-busybox-rbd-rp-4-cg
+  name: cli-c1-imp-busybox-cephfs-rp-2
 spec:
   appType: busybox
   groups:
-  - backupRef: cli-c6-imp-busybox-rbd-rp-4-cg
+  - backupRef: cli-c1-imp-busybox-cephfs-rp-2
     excludedResourceTypes:
     - events
     - event.events.k8s.io
@@ -14,14 +14,14 @@ spec:
     - persistentvolumeclaims
     - pods
     includedNamespaces:
-    - cli-c6-imp-busybox-rbd-rp-4-cg
+    - cli-c1-imp-busybox-cephfs-rp-2
     labelSelector:
       matchExpressions:
       - key: workloadpattern
         operator: In
         values:
         - simple_io
-    name: cli-c6-imp-busybox-rbd-rp-4-cg
+    name: cli-c1-imp-busybox-cephfs-rp-2
     type: resource
   hooks:
   - chks:
@@ -31,14 +31,14 @@ spec:
       timeout: 900
     name: deployment-check
     nameSelector: busybox-*
-    namespace: cli-c6-imp-busybox-rbd-rp-4-cg
+    namespace: cli-c1-imp-busybox-cephfs-rp-2
     onError: fail
     selectResource: deployment
     timeout: 800
     type: check
   volumes:
     includedNamespaces:
-    - cli-c6-imp-busybox-rbd-rp-4-cg
+    - cli-c1-imp-busybox-cephfs-rp-2
     labelSelector:
       matchExpressions:
       - key: workloadpattern
@@ -52,9 +52,9 @@ spec:
     name: backup
     sequence:
     - hook: deployment-check/stateReady
-    - group: cli-c6-imp-busybox-rbd-rp-4-cg
+    - group: cli-c1-imp-busybox-cephfs-rp-2
   - failOn: any-error
     name: restore
     sequence:
-    - group: cli-c6-imp-busybox-rbd-rp-4-cg
+    - group: cli-c1-imp-busybox-cephfs-rp-2
     - hook: deployment-check/stateReady

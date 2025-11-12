@@ -29,6 +29,9 @@ def parse_args():
     parser.add_argument('-workload', type=str, default="busybox", choices=['busybox', 'vm', 'mysql'], help='Workload That you want to deploy')
     parser.add_argument('-ns_dr_prefix', type=str, default=False, help='Name to add as prefix')
     parser.add_argument('-recipe', type=bool, default=False, help='Protect discovered based workload using recipe')
+    parser.add_argument('-repo', type=str, default=None, help='Repo to use for dist worklaods')
+    parser.add_argument('-repo_branch', type=str, default="less_workload", help='Branch to use for repo ')
+
 
     return parser.parse_args()
 
@@ -41,7 +44,7 @@ def get_workload_path(pvc_type, workload):
     """Return workload path based on PVC type."""
     if workload == "busybox":
         if pvc_type == "mix-workload":
-            path=f"rdr/busybox/{pvc_type}/deployment"
+            path=f"rdr/busybox/{pvc_type}/workloads/app-busybox-1"
             workload_pod_selector_key="workloadpattern"
             workload_pod_selector_value="simple_io"
             workload_pvc_selector_key="appname"
@@ -80,13 +83,13 @@ def create_project(kubeconfig, cluster_name, project_name):
     try:
         cmd = ["oc", "--kubeconfig", kubeconfig, "new-project", project_name]
         subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print(f"✅ Project '{project_name}' created on {cluster_name}.")
+        logger.info(f"✅ Project '{project_name}' created on {cluster_name}.")
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.strip()
         if "already exists" in stderr:
-            print(f"⚠ Project '{project_name}' already exists on {cluster_name}, skipping creation.")
+            logger.info(f"⚠ Project '{project_name}' already exists on {cluster_name}, skipping creation.")
         else:
-            print(f"❌ Failed to create project '{project_name}' on {cluster_name}:\n{stderr}")
+            logger.info(f"❌ Failed to create project '{project_name}' on {cluster_name}:\n{stderr}")
 
 
 def create_resource(kubeconfig, cluster_name, yaml_file, resource_label):
@@ -94,17 +97,17 @@ def create_resource(kubeconfig, cluster_name, yaml_file, resource_label):
     try:
         cmd = ["oc", "--kubeconfig", kubeconfig, "create", "-f", yaml_file]
         subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print(f"✅ Created {resource_label} on {cluster_name}.")
+        logger.info(f"✅ Created {resource_label} on {cluster_name}.")
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.strip()
         if "AlreadyExists" in stderr or "already exists" in stderr:
-            print(f"⚠ {resource_label} already exists on {cluster_name}, skipping creation.")
+            logger.info(f"⚠ {resource_label} already exists on {cluster_name}, skipping creation.")
         else:
-            print(f"❌ Failed to create {resource_label} on {cluster_name}:\n{stderr}")
+            logger.info(f"❌ Failed to create {resource_label} on {cluster_name}:\n{stderr}")
 
 
 
-def update_appset_yaml(appset_data, pvc_type, cluster_set, deploy_on, c1, c2, counter, workload_path, protect_workload, drpolicy_name, cg, workload_dict, c1_dict, c2_dict, ns_dr_prefix):
+def update_appset_yaml(appset_data, pvc_type, cluster_set, deploy_on, c1, c2, counter, workload_path, protect_workload, drpolicy_name, cg, workload_dict, c1_dict, c2_dict, ns_dr_prefix, repo_branch):
     """Update ApplicationSet YAML based on provided parameters."""
     name_suffix=""
     ns_dr_prf=""
@@ -132,6 +135,8 @@ def update_appset_yaml(appset_data, pvc_type, cluster_set, deploy_on, c1, c2, co
             item["spec"]["generators"][0]["clusterDecisionResource"]["labelSelector"]["matchLabels"]["cluster.open-cluster-management.io/placement"] = f"{ workload_name}-placs"
             item["spec"]["template"]["metadata"]["name"] = f"{workload_name}-{{{{name}}}}"
             item["spec"]["template"]["spec"]["sources"][0]["path"] = workload_path
+            item["spec"]["template"]["spec"]["sources"][0]["targetRevision"] = repo_branch
+
             item["spec"]["template"]["spec"]["destination"]["namespace"] = workload_name
         elif item["kind"] == "Placement":
             item["metadata"]["name"] = f"{workload_name}-placs"
@@ -179,7 +184,7 @@ def get_clusterset_name(cluster_name):
     return data.get("metadata", {}).get("labels", {}).get("cluster.open-cluster-management.io/clusterset")
 
 
-def update_sub_yaml(sub_data, pvc_type, cluster_set, deploy_on, c1, c2, counter, workload_path, protect_workload, drpolicy_name, cg, workload_dict, c1_dict, c2_dict,ns_dr_prefix):
+def update_sub_yaml(sub_data, pvc_type, cluster_set, deploy_on, c1, c2, counter, workload_path, protect_workload, drpolicy_name, cg, workload_dict, c1_dict, c2_dict,ns_dr_prefix, repo_branch):
     """Update Subscription YAML based on provided parameters."""
     name_suffix=""
     ns_dr_prf=""
@@ -201,6 +206,7 @@ def update_sub_yaml(sub_data, pvc_type, cluster_set, deploy_on, c1, c2, counter,
         elif item["kind"] == "Subscription":
             item["metadata"]["name"] = f"{name}-subscription-{counter}"
             item["metadata"]["namespace"] = name
+            item["metadata"]["annotations"]["apps.open-cluster-management.io/git-branch"] = repo_branch
             item["metadata"]["annotations"]["apps.open-cluster-management.io/git-path"] = workload_path
             item["metadata"]["labels"]["app"] = name
             item["spec"]["channel"] = f"{channel}/{channel}"
@@ -261,12 +267,12 @@ def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy
         logger.info(f"Creating project on cluster {c1_dict.get('cluster_name')} for {pvc_type}-{counter}")
         cmd = ["oc", "--kubeconfig", c1_dict.get("kubeconfig"), "new-project", namespace_name]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        logger.info(f"Project created on {c1_dict.get('cluster_name')}: {result.stdout}")
+        logger.info(f"Project created on {c1_dict.get('cluster_name')}")
 
         logger.info(f"Creating project on cluster {c2_dict.get('cluster_name')} for {pvc_type}-{counter}")
         cmd = ["oc", "--kubeconfig", c2_dict.get("kubeconfig"), "new-project", namespace_name]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        logger.info(f"Project created on {c2_dict.get('cluster_name')}: {result.stdout}")
+        logger.info(f"Project created on {c2_dict.get('cluster_name')}")
 
         cluster_dict = [c1_dict, c2_dict]
         if deploy_on:
@@ -285,7 +291,7 @@ def deploy_discovered_apps(counter, workload_path, pvc_type, cluster_set, deploy
         if protect_workload == "yes":
             current_path = os.getcwd()
 
-            print(f"Current path: {current_path}")
+            logger.info(f"Current path: {current_path}")
             yaml_file = str(Path(f"../workload_data/placement.yaml"))
             placement_yaml_dict = load_yaml_file(yaml_file)[0]
             yaml_file = str(Path(f"../workload_data/drpc.yaml"))
@@ -359,7 +365,7 @@ def change_to_script_root():
 
 
 
-def clone_and_checkout(repo_url, clone_path):
+def clone_and_checkout(repo_url, clone_path, branch="less_workload"):
     """Clone the Git repository and checkout the master branch."""
     change_to_script_root()
     if os.path.exists(clone_path):
@@ -368,7 +374,7 @@ def clone_and_checkout(repo_url, clone_path):
     
     try:
         logger.info(f"Cloning repository {repo_url} into {clone_path}")
-        subprocess.run(["git", "clone", repo_url, clone_path, "--branch", "less_workload_rbd"], check=True)
+        subprocess.run(["git", "clone", "--quiet", repo_url, clone_path, "--branch", branch], check=True)
 
         logger.info("Repository cloned successfully.")
         os.chdir("ocs-workloads")
@@ -430,7 +436,7 @@ def ensure_vrgc_exists(kubeconfig, vrgc_dict, output_path):
     )
 
     if check.returncode == 0:
-        print(f"✅ VRGC '{vrgc_name}' already exists in cluster {kubeconfig}, skipping creation.")
+        logger.info(f"✅ VRGC '{vrgc_name}' already exists in cluster {kubeconfig}, skipping creation.")
         return
 
     # Write VRGC YAML to file
@@ -440,7 +446,7 @@ def ensure_vrgc_exists(kubeconfig, vrgc_dict, output_path):
         ["oc", "--kubeconfig", kubeconfig, "create", "-f", output_path],
         capture_output=True, text=True, check=True
     )
-    print(f"🎉 Created VGRC '{vrgc_name}' in cluster {kubeconfig}")
+    logger.info(f"🎉 Created VGRC '{vrgc_name}' in cluster {kubeconfig}")
 
 
 def create_vrgc(args):
@@ -476,9 +482,7 @@ def main():
     if args.workload_pvc_type == "mix":
         args.workload_pvc_type="mix-workload"
     args.output_dir = "output_data/"+args.output_dir
-    print(f"=================={args.output_dir}============")
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    print(f"=================={args.output_dir}============")
     if args.cg and args.workload_pvc_type == "cephfs":
         sys.exit("❌ Cephfs with CG is not supported")
     if args.workload_pvc_type=="cephfs" and args.workload=="vm":
@@ -521,7 +525,13 @@ def main():
         if args.workload_type != "dist":
             data = load_yaml_file(yaml_file)
         else:
-            clone_and_checkout("https://github.com/red-hat-storage/ocs-workloads.git", "ocs-workloads")
+            git_repo = "https://github.com/red-hat-storage/ocs-workloads.git"
+            git_branch = "less_workload"
+            if args.repo: 
+                git_repo = args.repo
+                git_branch = args.repo_branch
+                
+            clone_and_checkout(git_repo, "ocs-workloads", git_branch)
 
         policy_name = random.choice(policy_names)
 
@@ -537,7 +547,7 @@ def main():
                 if args.workload_pvc_type in line and args.workload in line
             )
             dynamic_i = current_count + i
-            updated_yaml = update_appset_yaml(data, args.workload_pvc_type, clusterset, args.deploy_on, c1, c2, dynamic_i, workload_path, args.protect_workload, policy_name, args.cg, workload_dict, c1_dict, c2_dict, args.ns_dr_prefix)
+            updated_yaml = update_appset_yaml(data, args.workload_pvc_type, clusterset, args.deploy_on, c1, c2, dynamic_i, workload_path, args.protect_workload, policy_name, args.cg, workload_dict, c1_dict, c2_dict, args.ns_dr_prefix, args.repo_branch)
 
         elif args.workload_type == "sub":
             result = subprocess.run(
@@ -548,7 +558,7 @@ def main():
                 args.workload="bb"
             current_count = sum(1 for line in result.stdout.splitlines() if args.workload_pvc_type in line and args.workload in line)
             dynamic_i = current_count + i
-            updated_yaml = update_sub_yaml(data, args.workload_pvc_type, clusterset, args.deploy_on, c1, c2, dynamic_i, workload_path, args.protect_workload, policy_name, args.cg, workload_dict, c1_dict, c2_dict, args.ns_dr_prefix)
+            updated_yaml = update_sub_yaml(data, args.workload_pvc_type, clusterset, args.deploy_on, c1, c2, dynamic_i, workload_path, args.protect_workload, policy_name, args.cg, workload_dict, c1_dict, c2_dict, args.ns_dr_prefix, args.repo_branch)
         
         else:
             
