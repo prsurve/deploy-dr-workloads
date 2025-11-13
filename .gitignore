@@ -65,6 +65,7 @@ MANIFEST
 Output.html
 ocs-workloads
 output_data
+workload_data/vgrc-vm.yaml
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
