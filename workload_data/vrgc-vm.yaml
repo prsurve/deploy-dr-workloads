@@ -4,14 +4,14 @@ metadata:
   name: vrgc-rbd-5m
   labels:
     ramendr.openshift.io/maintenancemodes: Failover
-    ramendr.openshift.io/storageid: 4a1c3cd1c333e011a8cf8e2645c0b8df
-    ramendr.openshift.io/replicationid: ef9bf54f9ada1bd00dafb3e9020cf444
+    ramendr.openshift.io/storageid: ecbbf064813d20305dbc48fdb17d06a2
+    ramendr.openshift.io/replicationid: d3533d20329278342bdcf6aab6d17f5c
 spec:
   provisioner: openshift-storage.rbd.csi.ceph.com
   parameters:
-    clusterID: bbeaea44-f365-4849-abbe-cd8d66e1ee86
+    clusterID: 818920cd-ed7d-4bf5-b3af-a57ce8c1e55f
     mirroringMode: snapshot
     pool: ocs-storagecluster-cephblockpool
-    replication.storage.openshift.io/group-replication-secret-name: csi-rbd-provisioner-bbeaea44-f365-4849-abbe-cd8d66e1ee86
+    replication.storage.openshift.io/group-replication-secret-name: csi-rbd-provisioner-818920cd-ed7d-4bf5-b3af-a57ce8c1e55f
     replication.storage.openshift.io/group-replication-secret-namespace: openshift-storage
     schedulingInterval: 5m
