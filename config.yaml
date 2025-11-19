@@ -1,0 +1,19 @@
+# my_config.yaml
+# Cluster connection details
+c1_name: "cluster-alpha"
+c1_kubeconfig: "/home/user/.kube/cluster-alpha-config"
+c2_name: "cluster-beta"
+c2_kubeconfig: "/home/user/.kube/cluster-beta-config"
+
+# Common workload settings
+output_dir: "dr_test_run_1"
+protect_workload: "yes"
+drpolicy_name: "my-dr-policy-5m"
+clusterset: "my-clusterset"
+
+# Git settings
+repo: "https://github.com/red-hat-storage/ocs-workloads.git"
+repo_branch: "less_workloads"
+
+# Default flags
+cg: false
