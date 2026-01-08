@@ -32,12 +32,14 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 # Relative paths to data files
 WORKLOAD_DATA_DIR = SCRIPT_DIR / "workload_data"
 VM_SECRET_YAML = WORKLOAD_DATA_DIR / "vm-secret.yaml"
+VM_SECRET_REG_YAML = WORKLOAD_DATA_DIR / "vm-secret-reg.yaml"
+VM_REG_CERT_YAML = WORKLOAD_DATA_DIR / "vm-reg-cert.yaml"
 PLACEMENT_YAML = WORKLOAD_DATA_DIR / "placement.yaml"
 DRPC_YAML = WORKLOAD_DATA_DIR / "drpc.yaml"
 RECIPE_YAML = WORKLOAD_DATA_DIR / "recipe.yaml"
 VRGC_YAML = WORKLOAD_DATA_DIR / "vrgc.yaml"
 DEFAULT_GIT_REPO = "https://github.com/red-hat-storage/ocs-workloads.git"
-DEFAULT_GIT_BRANCH = "less_workload"
+DEFAULT_GIT_BRANCH = "master"
 CLONE_DIR_NAME = "ocs-workloads"
 OUTPUT_DATA_DIR = "output_data"
 OC_CMD = "oc"
@@ -85,6 +87,7 @@ def parse_args():
     parser.add_argument('-recipe', action='store_true', help='Protect discovered workload using recipe')
     parser.add_argument('-repo', type=str, default=None, help='Repo to use for dist workloads')
     parser.add_argument('-repo_branch', type=str, default=DEFAULT_GIT_BRANCH, help='Branch to use for repo ')
+    parser.add_argument('-git_token', type=str, default=None, help='Token to use for git clone')
 
 
     # --- Config File Loading Logic ---
@@ -328,7 +331,7 @@ def validate_drpolicy(drpolicy_name: str) -> None:
         logger.error(f"❌ DRPolicy '{drpolicy_name}' not found or inaccessible: {e.stderr}")
         sys.exit(1)
 
-def get_existing_workload_count(workload_type: str, pvc_type: str, workload: str, cg: bool) -> int:
+def get_existing_workload_count(workload_type: str, pvc_type: str, workload: str, cg: bool, kubeconfig: str) -> int:
     """Get count of existing workloads to create dynamic names."""
     logger.debug("Getting existing workload count...")
     try:
@@ -340,7 +343,7 @@ def get_existing_workload_count(workload_type: str, pvc_type: str, workload: str
             cmd_args = ["get", resource, "-A", "-o", "name"]
         else: # dist
             resource = "namespace"
-            cmd_args = ["get", resource, "--no-headers", "-o", "name"]
+            cmd_args = ["get", resource, "--no-headers", "-o", "name", "--kubeconfig", kubeconfig]
         
         result = run_oc_command(cmd_args)
         
@@ -367,7 +370,7 @@ def get_existing_workload_count(workload_type: str, pvc_type: str, workload: str
 
 # --- VM & VRGC Specific Logic ---
 
-def handle_vm_resources(c1_dict: Dict, c2_dict: Dict, namespace: str, vm_secret_template_path: Path) -> None:
+def handle_vm_resources(c1_dict: Dict, c2_dict: Dict, namespace: str, vm_secret_template_path: Path, vm_secret_reg_template_path: Path, vm_reg_cert_template_path: Path) -> None:
     """Creates project and VM secret on both clusters for a given namespace."""
     logger.info(f"Setting up VM resources for namespace '{namespace}'...")
     try:
@@ -379,13 +382,35 @@ def handle_vm_resources(c1_dict: Dict, c2_dict: Dict, namespace: str, vm_secret_
         vm_secret_yaml_dict = load_yaml_file(vm_secret_template_path)[0]
         vm_secret_yaml_dict["metadata"]["namespace"] = namespace
         
-        temp_secret_path = SCRIPT_DIR / f"temp-vm-secret-{namespace}.yaml"
+        temp_secret_path = SCRIPT_DIR / OUTPUT_DATA_DIR  / f"temp-vm-secret-{namespace}.yaml"
         write_output_yaml([vm_secret_yaml_dict], temp_secret_path)
         logger.debug(f"Wrote temporary VM secret to {temp_secret_path}")
+        if vm_secret_reg_template_path:
+            vm_secret_reg_yaml_dict = load_yaml_file(vm_secret_reg_template_path)[0]
+            vm_secret_reg_yaml_dict["metadata"]["namespace"] = namespace
+            
+            temp_secret_reg_path = SCRIPT_DIR / OUTPUT_DATA_DIR / f"temp-vm-secret-reg-{namespace}.yaml"
+            write_output_yaml([vm_secret_reg_yaml_dict], temp_secret_reg_path)
+            logger.debug(f"Wrote temporary VM secret Reg to {temp_secret_reg_path}")
+        
+
+        if vm_reg_cert_template_path:
+            vm_reg_cert_yaml_dict = load_yaml_file(vm_reg_cert_template_path)[0]
+            vm_reg_cert_yaml_dict["metadata"]["namespace"] = namespace
+            
+            temp_reg_cert_path = SCRIPT_DIR / OUTPUT_DATA_DIR  / f"temp-vm-reg-cert-{namespace}.yaml"
+            write_output_yaml([vm_reg_cert_yaml_dict], temp_reg_cert_path)
+            logger.debug(f"Wrote temporary VM secret Reg to {temp_reg_cert_path}")
 
         # 3. Create secret on both clusters
         create_resource(c1_dict["kubeconfig"], c1_dict["cluster_name"], temp_secret_path, f"vm-secret in {namespace}")
         create_resource(c2_dict["kubeconfig"], c2_dict["cluster_name"], temp_secret_path, f"vm-secret in {namespace}")
+        if vm_secret_reg_template_path:
+            create_resource(c1_dict["kubeconfig"], c1_dict["cluster_name"], temp_secret_reg_path, f"vm-secret-reg in {namespace}")
+            create_resource(c2_dict["kubeconfig"], c2_dict["cluster_name"], temp_secret_reg_path, f"vm-secret-reg in {namespace}")
+        if vm_reg_cert_template_path:
+            create_resource(c1_dict["kubeconfig"], c1_dict["cluster_name"], temp_reg_cert_path, f"vm-reg-cert in {namespace}")
+            create_resource(c2_dict["kubeconfig"], c2_dict["cluster_name"], temp_reg_cert_path, f"vm-reg-cert in {namespace}")
 
         # 4. Clean up temp file
         temp_secret_path.unlink()
@@ -477,7 +502,8 @@ def update_appset_yaml(appset_data: List[Dict], args: argparse.Namespace, counte
             item["spec"]["generators"][0]["clusterDecisionResource"]["labelSelector"]["matchLabels"]["cluster.open-cluster-management.io/placement"] = f"{workload_name}-placs"
             item["spec"]["template"]["metadata"]["name"] = f"{workload_name}-{{{{name}}}}"
             item["spec"]["template"]["spec"]["sources"][0]["path"] = workload_dict.get("workload_path")
-            item["spec"]["template"]["spec"]["sources"][0]["targetRevision"] = args.repo_branch
+            item["spec"]["template"]["spec"]["sources"][0]["repoURL"] = args.repo or DEFAULT_GIT_REPO
+            item["spec"]["template"]["spec"]["sources"][0]["targetRevision"] = args.repo_branch if args.repo else DEFAULT_GIT_BRANCH
             item["spec"]["template"]["spec"]["destination"]["namespace"] = workload_name
         elif item["kind"] == "Placement":
             item["metadata"]["name"] = f"{workload_name}-placs"
@@ -497,7 +523,12 @@ def update_appset_yaml(appset_data: List[Dict], args: argparse.Namespace, counte
                 item["metadata"].setdefault("annotations", {}).setdefault("drplacementcontrol.ramendr.openshift.io/is-cg-enabled", "true")
     
     if workload_dict.get('workload') == "vm":
-        handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML)
+        if args.repo == DEFAULT_GIT_REPO:
+            global VM_SECRET_REG_YAML, VM_REG_CERT_YAML
+            VM_SECRET_REG_YAML = None
+            VM_REG_CERT_YAML = None
+        handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML, VM_SECRET_REG_YAML, VM_REG_CERT_YAML)
+        
         
     return appset_data
 
@@ -521,10 +552,11 @@ def update_sub_yaml(sub_data: List[Dict], args: argparse.Namespace, counter: int
             item["spec"]["selector"]["matchExpressions"][0]["values"][0] = workload_name
         elif item["kind"] == "Channel":
             item["metadata"]["name"] = item["metadata"]["namespace"] = channel
+            item["spec"]["pathname"] = args.repo
         elif item["kind"] == "Subscription":
             item["metadata"]["name"] = f"{workload_name}-sub"
             item["metadata"]["namespace"] = workload_name
-            item["metadata"]["annotations"]["apps.open-cluster-management.io/git-branch"] = args.repo_branch
+            item["metadata"]["annotations"]["apps.open-cluster-management.io/git-branch"] = args.repo_branch if args.repo else DEFAULT_GIT_BRANCH
             item["metadata"]["annotations"]["apps.open-cluster-management.io/git-path"] = workload_dict.get("workload_path")
             item["metadata"]["labels"]["app"] = workload_name
             item["spec"]["channel"] = f"{channel}/{channel}"
@@ -555,7 +587,11 @@ def update_sub_yaml(sub_data: List[Dict], args: argparse.Namespace, counter: int
                 item["metadata"].setdefault("annotations", {}).setdefault("drplacementcontrol.ramendr.openshift.io/is-cg-enabled", "true")
 
     if workload_dict.get('workload') == "vm":
-        handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML)
+        if args.repo == DEFAULT_GIT_REPO:
+            global VM_SECRET_REG_YAML, VM_REG_CERT_YAML
+            VM_SECRET_REG_YAML = None
+            VM_REG_CERT_YAML = None
+        handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML, VM_SECRET_REG_YAML, VM_REG_CERT_YAML)
         
     return sub_data
 
@@ -652,7 +688,12 @@ def deploy_discovered_apps(args: argparse.Namespace, counter: int, workload_name
                 output_yaml_docs.append(recipe_yaml_dict)
 
         if workload_dict.get('workload') == "vm":
-            handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML)
+            if not args.git_token:
+                global VM_SECRET_REG_YAML, VM_REG_CERT_YAML
+                VM_SECRET_REG_YAML = None
+                VM_REG_CERT_YAML = None
+
+            handle_vm_resources(c1_dict, c2_dict, workload_name, VM_SECRET_YAML, VM_SECRET_REG_YAML, VM_REG_CERT_YAML)
 
         logger.info(f"✅ Deployment and protection setup for '{workload_name}' completed.")
         return output_yaml_docs
@@ -726,6 +767,9 @@ def main():
         git_repo = args.repo or DEFAULT_GIT_REPO
         git_branch = args.repo_branch if args.repo else DEFAULT_GIT_BRANCH
         clone_path = SCRIPT_DIR / CLONE_DIR_NAME
+        if args.git_token:
+            git_repo = git_repo.replace("https://", f"https://{args.git_token}@")
+        
         clone_and_checkout(git_repo, clone_path, git_branch)
         full_workload_path = clone_path / workload_dict.get("workload_path")
         if not full_workload_path.exists():
@@ -758,7 +802,7 @@ def main():
         logger.error(f"❌ Could not determine clusterset for {args.c1_name}")
         sys.exit(1)
         
-    current_count = get_existing_workload_count(args.workload_type, args.workload_pvc_type, args.workload, args.cg)
+    current_count = get_existing_workload_count(args.workload_type, args.workload_pvc_type, args.workload, args.cg, args.c1_kubeconfig)
 
     # --- Main Deployment Loop ---
     logger.info(f"Starting deployment of {args.workload_count} workload(s)...")
