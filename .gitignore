@@ -66,6 +66,8 @@ Output.html
 ocs-workloads
 output_data
 workload_data/vgrc-vm.yaml
+workload_data/vm-*
+vm-*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -212,3 +214,4 @@ pyrightconfig.json
 
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python
+deploy_workloads copy.py
