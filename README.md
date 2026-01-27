@@ -475,10 +475,10 @@ Configuration files use YAML format and can specify any command-line option.
 # ============================================================================
 
 # Cluster Configuration
-c1_name: "baremetal5"
-c1_kubeconfig: "scale_hub/auth/kubeconfig"
-c2_name: "dnd-az01"
-c2_kubeconfig: "scale_c1/auth/kubeconfig"
+c1_name: "c1-clustername"
+c1_kubeconfig: "c1-clustername/auth/kubeconfig"
+c2_name: "c2-clustername"
+c2_kubeconfig: "c2-clustername/auth/kubeconfig"
 
 # Workload Configuration
 workload_pvc_type: "rbd"          # Options: rbd, cephfs, mix
