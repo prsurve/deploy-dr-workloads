@@ -36,27 +36,27 @@ jobs:
       
       - name: Check Python syntax
         run: |
-          python -m py_compile deploy_workloads_multi_ns.py
+          python -m py_compile deploy_workloads.py
       
       - name: Run flake8
         continue-on-error: true
         run: |
-          flake8 deploy_workloads_multi_ns.py --max-line-length=120 --ignore=E501,W503
+          flake8 deploy_workloads.py --max-line-length=120 --ignore=E501,W503
       
       - name: Run pylint
         continue-on-error: true
         run: |
-          pylint deploy_workloads_multi_ns.py --disable=C0111,C0103,R0913,R0914,R0915 --max-line-length=120
+          pylint deploy_workloads.py --disable=C0111,C0103,R0913,R0914,R0915 --max-line-length=120
       
       - name: Check code formatting with black
         continue-on-error: true
         run: |
-          black --check --line-length=120 deploy_workloads_multi_ns.py || true
+          black --check --line-length=120 deploy_workloads.py || true
       
       - name: Type checking with mypy
         continue-on-error: true
         run: |
-          mypy deploy_workloads_multi_ns.py --ignore-missing-imports || true
+          mypy deploy_workloads.py --ignore-missing-imports || true
 
   dry-run-tests:
     name: Dry Run Tests
@@ -447,7 +447,7 @@ jobs:
       
       - name: Validate script arguments parsing
         run: |
-          python3 deploy_workloads_multi_ns.py -config test_config.yaml --help || true
+          python3 deploy_workloads.py -config test_config.yaml --help || true
       
       - name: Test dry run - ${{ matrix.test-scenario.name }}
         run: |
@@ -457,7 +457,7 @@ jobs:
           echo "PVC Type: ${{ matrix.test-scenario.pvc_type }}"
           
           # Note: This will fail at oc commands, but validates argument parsing and logic
-          python3 deploy_workloads_multi_ns.py -config test_config.yaml -v 2>&1 | head -100 || true
+          python3 deploy_workloads.py -config test_config.yaml -v 2>&1 | head -100 || true
       
       - name: Check output directory creation
         run: |
@@ -523,7 +523,7 @@ jobs:
           clusterset: "default"
           EOF
             
-            python3 deploy_workloads_multi_ns.py -config multi_ns_config.yaml -v 2>&1 | head -50 || true
+            python3 deploy_workloads.py -config multi_ns_config.yaml -v 2>&1 | head -50 || true
           done
 
   test-all-options:
@@ -547,18 +547,18 @@ jobs:
       
       - name: Test help output
         run: |
-          python3 deploy_workloads_multi_ns.py --help
+          python3 deploy_workloads.py --help
       
       - name: Test version and verbose flags
         run: |
-          python3 deploy_workloads_multi_ns.py --verbose --help || true
-          python3 deploy_workloads_multi_ns.py -v --help || true
+          python3 deploy_workloads.py --verbose --help || true
+          python3 deploy_workloads.py -v --help || true
       
       - name: Test all cluster strategies
         run: |
           for strategy in round_robin random least_loaded; do
             echo "Testing cluster_strategy: $strategy"
-            python3 deploy_workloads_multi_ns.py \
+            python3 deploy_workloads.py \
               -cluster_strategy $strategy \
               --help || true
           done
@@ -567,7 +567,7 @@ jobs:
         run: |
           for wtype in dist appset sub; do
             echo "Testing workload_type: $wtype"
-            python3 deploy_workloads_multi_ns.py \
+            python3 deploy_workloads.py \
               -workload_type $wtype \
               --help || true
           done
@@ -576,7 +576,7 @@ jobs:
         run: |
           for pvc in rbd cephfs mix; do
             echo "Testing workload_pvc_type: $pvc"
-            python3 deploy_workloads_multi_ns.py \
+            python3 deploy_workloads.py \
               -workload_pvc_type $pvc \
               --help || true
           done
@@ -585,7 +585,7 @@ jobs:
         run: |
           for vm in vm-pvc vm-dv vm-dvt; do
             echo "Testing vm_type: $vm"
-            python3 deploy_workloads_multi_ns.py \
+            python3 deploy_workloads.py \
               -vm_type $vm \
               --help || true
           done
@@ -611,17 +611,17 @@ jobs:
       
       - name: Test missing required arguments
         run: |
-          python3 deploy_workloads_multi_ns.py 2>&1 | grep -i "missing required" || true
+          python3 deploy_workloads.py 2>&1 | grep -i "missing required" || true
       
       - name: Test invalid workload type
         run: |
-          python3 deploy_workloads_multi_ns.py \
+          python3 deploy_workloads.py \
             -workload_type invalid \
             2>&1 | grep -i "invalid choice" || true
       
       - name: Test invalid PVC type
         run: |
-          python3 deploy_workloads_multi_ns.py \
+          python3 deploy_workloads.py \
             -workload_pvc_type invalid \
             2>&1 | grep -i "invalid choice" || true
       
@@ -630,7 +630,7 @@ jobs:
           mkdir -p mock_clusters
           echo "test" > mock_clusters/test-kubeconfig
           
-          python3 deploy_workloads_multi_ns.py \
+          python3 deploy_workloads.py \
             -workload_pvc_type cephfs \
             -workload_type dist \
             -workload_count 1 \
@@ -648,7 +648,7 @@ jobs:
           mkdir -p mock_clusters
           echo "test" > mock_clusters/test-kubeconfig
           
-          python3 deploy_workloads_multi_ns.py \
+          python3 deploy_workloads.py \
             -workload_pvc_type rbd \
             -workload_type appset \
             -workload_count 1 \
@@ -683,8 +683,8 @@ jobs:
       - name: Run Bandit security scan
         continue-on-error: true
         run: |
-          bandit -r deploy_workloads_multi_ns.py -f json -o bandit-report.json || true
-          bandit -r deploy_workloads_multi_ns.py || true
+          bandit -r deploy_workloads.py -f json -o bandit-report.json || true
+          bandit -r deploy_workloads.py || true
       
       - name: Check for known vulnerabilities in dependencies
         continue-on-error: true
