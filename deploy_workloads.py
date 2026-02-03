@@ -13,6 +13,7 @@ Both workloads deployed on the same cluster with DR protection.
 """
 
 import argparse
+import copy
 import json
 import logging
 import random
@@ -116,6 +117,7 @@ class DeploymentConfig:
     cluster2: ClusterConfig
     selection_strategy: ClusterSelectionStrategy = ClusterSelectionStrategy.ROUND_ROBIN
     multi_ns_workload: int = 1  # Number of namespaces per workload
+    vm_type: str = "vm-pvc"  # VM workload type (vm-pvc, vm-dv, vm-dvt)
 
 
 # --- Argument Parsing ---
@@ -187,6 +189,11 @@ class ConfigLoader:
             '-workload', type=str, default="busybox",
             choices=['busybox', 'vm', 'mysql'],
             help='Workload to deploy'
+        )
+        parser.add_argument(
+            '-vm_type', type=str, default="vm-pvc",
+            choices=['vm-pvc', 'vm-dv', 'vm-dvt'],
+            help='VM workload type (only applicable when -workload vm): vm-pvc, vm-dv, or vm-dvt (default: vm-pvc)'
         )
         
         # Multi-namespace workload support
@@ -405,14 +412,14 @@ class WorkloadManager:
     """Manages workload configurations and naming."""
     
     @staticmethod
-    def get_details(pvc_type: str, workload: str) -> WorkloadDetails:
+    def get_details(pvc_type: str, workload: str, vm_type: str = "vm-pvc") -> WorkloadDetails:
         """Get workload details based on PVC type and workload."""
-        logger.debug(f"Getting workload details: pvc_type={pvc_type}, workload={workload}")
+        logger.debug(f"Getting workload details: pvc_type={pvc_type}, workload={workload}, vm_type={vm_type}")
         
         if workload == "busybox":
             return WorkloadManager._get_busybox_details(pvc_type)
         elif workload == "vm":
-            return WorkloadManager._get_vm_details()
+            return WorkloadManager._get_vm_details(vm_type)
         else:  # mysql
             return WorkloadManager._get_mysql_details(pvc_type)
     
@@ -439,10 +446,10 @@ class WorkloadManager:
             )
     
     @staticmethod
-    def _get_vm_details() -> WorkloadDetails:
+    def _get_vm_details(vm_type: str) -> WorkloadDetails:
         """Get VM workload details."""
         return WorkloadDetails(
-            path="rdr/cnv-workload/vm-resources/vm-workload-1",
+            path=f"rdr/cnv-workload/{vm_type}/vm-resources/vm-workload-1",
             workload="vm",
             pod_selector_key="appname",
             pod_selector_value="kubevirt",
@@ -1166,7 +1173,8 @@ class WorkloadDeployer:
         self.config = config
         self.workload_details = WorkloadManager.get_details(
             config.workload_pvc_type,
-            config.workload
+            config.workload,
+            config.vm_type
         )
         self.statistics = DeploymentStatistics(total_requested=config.workload_count)
     
@@ -1196,8 +1204,12 @@ class WorkloadDeployer:
         # Deploy based on workload type
         if self.config.workload_type == "dist":
             self._deploy_distributed_workloads(current_count, policy_names)
+        elif self.config.workload_type == "appset":
+            self._deploy_applicationset_workloads(current_count, policy_names)
+        elif self.config.workload_type == "sub":
+            self._deploy_subscription_workloads(current_count, policy_names)
         else:
-            logger.error("❌ Only 'dist' workload type is currently supported in this version")
+            logger.error(f"❌ Unsupported workload type: {self.config.workload_type}")
             sys.exit(1)
         
         # Print summary
@@ -1283,6 +1295,156 @@ class WorkloadDeployer:
         # Write combined output
         self._write_combined_output(all_output_yaml)
     
+    def _deploy_applicationset_workloads(
+        self,
+        current_count: int,
+        policy_names: List[str]
+    ) -> None:
+        """Deploy ApplicationSet workloads."""
+        logger.info(f"\n📦 Deploying APPLICATIONSET workloads...")
+        
+        # Load ApplicationSet template
+        template_path = WORKLOAD_DATA_DIR / "sample_appset_rbd.yaml"
+        if not template_path.exists():
+            logger.error(f"❌ Template not found: {template_path}")
+            sys.exit(1)
+        
+        template_data = YAMLHelper.load(template_path)
+        
+        # Get repository details
+        git_repo = self.config.repo or DEFAULT_GIT_REPO
+        git_branch = self.config.repo_branch if self.config.repo else DEFAULT_GIT_BRANCH
+        
+        all_output_yaml = []
+        for i in range(1, self.config.workload_count + 1):
+            dynamic_i = current_count + i
+            policy_name = policy_names[(i - 1) % len(policy_names)]
+            
+            workload_name = WorkloadManager.generate_name(
+                self.config.workload_type,
+                self.config.workload,
+                self.config.workload_pvc_type,
+                dynamic_i,
+                self.config.ns_dr_prefix,
+                self.config.cg,
+                self.config.recipe
+            )
+            
+            logger.info(f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---")
+            
+            try:
+                # Update ApplicationSet YAML
+                updated_yaml, workload_cluster = self._update_appset_yaml(
+                    template_data,
+                    workload_name,
+                    policy_name,
+                    git_repo,
+                    git_branch
+                )
+                all_output_yaml.extend(updated_yaml)
+                
+                logger.info(f"✅ ApplicationSet '{workload_name}' YAML created for {workload_cluster}")
+                
+                # Track deployment in statistics
+                result = DeploymentResult(
+                    success=True,
+                    workload_name=workload_name,
+                    namespace=workload_name,
+                    cluster_name=workload_cluster
+                )
+                self.statistics.add_result(result, self.config.cluster1.name)
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to create ApplicationSet {workload_name}: {e}")
+                # Track failure
+                result = DeploymentResult(
+                    success=False,
+                    workload_name=workload_name,
+                    namespace=workload_name,
+                    cluster_name="unknown",
+                    error_message=str(e)
+                )
+                self.statistics.add_result(result, self.config.cluster1.name)
+                continue
+        
+        # Write combined output
+        self._write_combined_output(all_output_yaml)
+    
+    def _deploy_subscription_workloads(
+        self,
+        current_count: int,
+        policy_names: List[str]
+    ) -> None:
+        """Deploy Subscription workloads."""
+        logger.info(f"\n📦 Deploying SUBSCRIPTION workloads...")
+        
+        # Load Subscription template
+        template_path = WORKLOAD_DATA_DIR / "sample_sub_rbd.yaml"
+        if not template_path.exists():
+            logger.error(f"❌ Template not found: {template_path}")
+            sys.exit(1)
+        
+        template_data = YAMLHelper.load(template_path)
+        
+        # Get repository details
+        git_repo = self.config.repo or DEFAULT_GIT_REPO
+        git_branch = self.config.repo_branch if self.config.repo else DEFAULT_GIT_BRANCH
+        
+        all_output_yaml = []
+        for i in range(1, self.config.workload_count + 1):
+            dynamic_i = current_count + i
+            policy_name = policy_names[(i - 1) % len(policy_names)]
+            
+            workload_name = WorkloadManager.generate_name(
+                self.config.workload_type,
+                self.config.workload,
+                self.config.workload_pvc_type,
+                dynamic_i,
+                self.config.ns_dr_prefix,
+                self.config.cg,
+                self.config.recipe
+            )
+            
+            logger.info(f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---")
+            
+            try:
+                # Update Subscription YAML
+                updated_yaml, workload_cluster = self._update_sub_yaml(
+                    template_data,
+                    workload_name,
+                    policy_name,
+                    git_repo,
+                    git_branch
+                )
+                all_output_yaml.extend(updated_yaml)
+                
+                logger.info(f"✅ Subscription '{workload_name}' YAML created for {workload_cluster}")
+                
+                # Track deployment in statistics
+                result = DeploymentResult(
+                    success=True,
+                    workload_name=workload_name,
+                    namespace=workload_name,
+                    cluster_name=workload_cluster
+                )
+                self.statistics.add_result(result, self.config.cluster1.name)
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to create Subscription {workload_name}: {e}")
+                # Track failure
+                result = DeploymentResult(
+                    success=False,
+                    workload_name=workload_name,
+                    namespace=workload_name,
+                    cluster_name="unknown",
+                    error_message=str(e)
+                )
+                self.statistics.add_result(result, self.config.cluster1.name)
+                continue
+        
+        # Write combined output
+        self._write_combined_output(all_output_yaml)
+    
     def _setup_git_repo(self) -> Path:
         """Setup Git repository and return kustomize path."""
         git_repo = self.config.repo or DEFAULT_GIT_REPO
@@ -1329,6 +1491,159 @@ class WorkloadDeployer:
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Failed to list DRPolicies: {e.stderr}")
             sys.exit(1)
+    
+    
+    def _update_appset_yaml(
+        self,
+        template_data: List[Dict],
+        workload_name: str,
+        policy_name: str,
+        git_repo: str,
+        git_branch: str
+    ) -> Tuple[List[Dict], str]:
+        """Update ApplicationSet YAML with workload-specific values.
+        
+        Returns:
+            Tuple of (updated_yaml_list, workload_cluster)
+        """
+        updated_data = copy.deepcopy(template_data)
+        
+        # Determine deployment cluster
+        workload_cluster = self.config.deploy_on or random.choice([
+            self.config.cluster1.name,
+            self.config.cluster2.name
+        ])
+        
+        for item in updated_data:
+            if item["kind"] == "ApplicationSet":
+                item["metadata"]["name"] = workload_name
+                item["spec"]["generators"][0]["clusterDecisionResource"]["labelSelector"]["matchLabels"]["cluster.open-cluster-management.io/placement"] = f"{workload_name}-placs"
+                item["spec"]["template"]["metadata"]["name"] = f"{workload_name}-{{{{name}}}}"
+                item["spec"]["template"]["spec"]["sources"][0]["path"] = self.workload_details.path
+                item["spec"]["template"]["spec"]["sources"][0]["repoURL"] = git_repo
+                item["spec"]["template"]["spec"]["sources"][0]["targetRevision"] = git_branch
+                item["spec"]["template"]["spec"]["destination"]["namespace"] = workload_name
+                
+            elif item["kind"] == "Placement":
+                item["metadata"]["name"] = f"{workload_name}-placs"
+                item["spec"]["predicates"][0]["requiredClusterSelector"]["labelSelector"]["matchExpressions"][0]["values"][0] = workload_cluster
+                item["spec"]["clusterSets"][0] = self.config.clusterset
+                
+                if self.config.protect_workload == "yes":
+                    item["metadata"].setdefault("annotations", {}).setdefault(
+                        "cluster.open-cluster-management.io/experimental-scheduling-disable", "true"
+                    )
+                    
+            elif item["kind"] == "DRPlacementControl" and self.config.protect_workload == "yes":
+                item["metadata"]["name"] = f"{workload_name}-placs-drpc"
+                item["spec"]["drPolicyRef"]["name"] = policy_name
+                item["spec"]["placementRef"]["name"] = f"{workload_name}-placs"
+                item["spec"]["preferredCluster"] = workload_cluster
+                
+                pvc_sel = item["spec"]["pvcSelector"]["matchExpressions"][0]
+                pvc_sel["key"] = self.workload_details.pvc_selector_key
+                pvc_sel["values"] = [self.workload_details.pvc_selector_value]
+                
+                if self.config.cg:
+                    item["metadata"].setdefault("annotations", {}).setdefault(
+                        "drplacementcontrol.ramendr.openshift.io/is-cg-enabled", "true"
+                    )
+        
+        # Filter out DRPC if protection is disabled
+        if self.config.protect_workload != "yes":
+            updated_data = [item for item in updated_data if item["kind"] != "DRPlacementControl"]
+        
+        return updated_data, workload_cluster
+    
+    def _update_sub_yaml(
+        self,
+        template_data: List[Dict],
+        workload_name: str,
+        policy_name: str,
+        git_repo: str,
+        git_branch: str
+    ) -> Tuple[List[Dict], str]:
+        """Update Subscription YAML with workload-specific values.
+        
+        Returns:
+            Tuple of (updated_yaml_list, workload_cluster)
+        """
+        updated_data = copy.deepcopy(template_data)
+        
+        channel = f"channel-{workload_name}"
+        
+        # Determine deployment cluster
+        workload_cluster = self.config.deploy_on or random.choice([
+            self.config.cluster1.name,
+            self.config.cluster2.name
+        ])
+        
+        for item in updated_data:
+            if item["kind"] == "Namespace":
+                # First namespace is for workload, second for channel
+                if item["metadata"]["name"] in ["sub-rbd-1", "busybox-sub"]:
+                    item["metadata"]["name"] = workload_name
+                else:
+                    item["metadata"]["name"] = channel
+                    
+            elif item["kind"] == "Application":
+                item["metadata"]["name"] = workload_name
+                item["metadata"]["namespace"] = workload_name
+                item["spec"]["selector"]["matchExpressions"][0]["values"][0] = workload_name
+                
+            elif item["kind"] == "Channel":
+                item["metadata"]["name"] = channel
+                item["metadata"]["namespace"] = channel
+                item["spec"]["pathname"] = git_repo
+                
+            elif item["kind"] == "Subscription":
+                item["metadata"]["name"] = f"{workload_name}-sub"
+                item["metadata"]["namespace"] = workload_name
+                item["metadata"]["annotations"]["apps.open-cluster-management.io/git-branch"] = git_branch
+                item["metadata"]["annotations"]["apps.open-cluster-management.io/git-path"] = self.workload_details.path
+                item["metadata"]["labels"]["app"] = workload_name
+                item["spec"]["channel"] = f"{channel}/{channel}"
+                item["spec"]["placement"]["placementRef"]["name"] = f"{workload_name}-placs"
+                
+            elif item["kind"] == "Placement":
+                item["metadata"]["labels"]["app"] = workload_name
+                item["metadata"]["name"] = f"{workload_name}-placs"
+                item["metadata"]["namespace"] = workload_name
+                item["spec"]["predicates"][0]["requiredClusterSelector"]["labelSelector"]["matchExpressions"][0]["values"][0] = workload_cluster
+                item["spec"]["clusterSets"][0] = self.config.clusterset
+                
+                if self.config.protect_workload == "yes":
+                    item["metadata"].setdefault("annotations", {}).setdefault(
+                        "cluster.open-cluster-management.io/experimental-scheduling-disable", "true"
+                    )
+                    
+            elif item["kind"] == "ManagedClusterSetBinding":
+                item["metadata"]["namespace"] = workload_name
+                item["metadata"]["name"] = self.config.clusterset
+                item["spec"]["clusterSet"] = self.config.clusterset
+                
+            elif item["kind"] == "DRPlacementControl" and self.config.protect_workload == "yes":
+                item["metadata"]["name"] = f"{workload_name}-placs-drpc"
+                item["metadata"]["namespace"] = workload_name
+                item["spec"]["drPolicyRef"]["name"] = policy_name
+                item["spec"]["placementRef"]["name"] = f"{workload_name}-placs"
+                item["spec"]["placementRef"]["namespace"] = workload_name
+                item["spec"]["preferredCluster"] = workload_cluster
+                
+                pvc_sel = item["spec"]["pvcSelector"]["matchExpressions"][0]
+                pvc_sel["key"] = self.workload_details.pvc_selector_key
+                pvc_sel["values"] = [self.workload_details.pvc_selector_value]
+                
+                if self.config.cg:
+                    item["metadata"].setdefault("annotations", {}).setdefault(
+                        "drplacementcontrol.ramendr.openshift.io/is-cg-enabled", "true"
+                    )
+        
+        # Filter out DRPC if protection is disabled
+        if self.config.protect_workload != "yes":
+            updated_data = [item for item in updated_data if item["kind"] != "DRPlacementControl"]
+        
+        return updated_data, workload_cluster
     
     def _write_combined_output(self, yaml_docs: List[Dict]) -> None:
         """Write all YAML documents to a single output file."""
@@ -1394,7 +1709,8 @@ def main():
         cluster1=ClusterConfig(name=args.c1_name, kubeconfig=args.c1_kubeconfig),
         cluster2=ClusterConfig(name=args.c2_name, kubeconfig=args.c2_kubeconfig),
         selection_strategy=selection_strategy,
-        multi_ns_workload=args.multi_ns_workload
+        multi_ns_workload=args.multi_ns_workload,
+        vm_type=args.vm_type
     )
     
     # Deploy workloads
