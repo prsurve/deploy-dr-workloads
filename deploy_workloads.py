@@ -939,6 +939,7 @@ class DistributedWorkloadDeployer:
                 if self.workload_details.workload == "vm":
                     self._setup_vm_resources(workload_name)
 
+
                 logger.info(
                     f"✅ Successfully deployed '{workload_name}' to {target_cluster.name}"
                 )
@@ -1007,6 +1008,7 @@ class DistributedWorkloadDeployer:
         OpenShiftClient.apply_kustomize(cluster, self.kustomize_path, namespace)
 
     def _setup_vm_resources(self, namespace: str) -> None:
+
         """Setup VM resources if workload is VM type."""
         use_default_repo = (
             self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
@@ -1417,6 +1419,18 @@ class WorkloadDeployer:
             logger.info(
                 f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---"
             )
+            
+            # Setup VM resources if workload is VM type
+            if self.workload_details.workload == "vm":
+                use_default_repo = (
+                    self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
+                )
+                VMResourceManager.setup_vm_resources(
+                    self.config.cluster1,
+                    self.config.cluster2,
+                    workload_name,
+                    use_default_repo
+                )
 
             try:
                 # Update ApplicationSet YAML
@@ -1772,9 +1786,15 @@ class WorkloadDeployer:
             if self.config.multi_ns_workload > 1
             else ""
         )
+        
+        # Add VM type suffix if workload is VM
+        vm_type_suffix = ""
+        if self.config.workload == "vm":
+            vm_type_suffix = f"_{self.config.vm_type}"
+        
         file_name = (
             f"output_{ns_prefix}{self.config.workload_type}_"
-            f"{self.config.workload_pvc_type}_{self.config.workload}{multi_suffix}_combined.yaml"
+            f"{self.config.workload_pvc_type}_{self.config.workload}{vm_type_suffix}{multi_suffix}_combined.yaml"
         )
         output_file = self.config.output_dir_path / file_name
 
