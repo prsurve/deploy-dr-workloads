@@ -1006,7 +1006,6 @@ class DistributedWorkloadDeployer:
         OpenShiftClient.apply_kustomize(cluster, self.kustomize_path, namespace)
 
     def _setup_vm_resources(self, namespace: str) -> None:
-
         """Setup VM resources if workload is VM type."""
         use_default_repo = (
             self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
@@ -1427,7 +1426,7 @@ class WorkloadDeployer:
                     self.config.cluster1,
                     self.config.cluster2,
                     workload_name,
-                    use_default_repo
+                    use_default_repo,
                 )
 
             try:
