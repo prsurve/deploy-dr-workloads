@@ -14,7 +14,6 @@ Both workloads deployed on the same cluster with DR protection.
 
 import argparse
 import copy
-import json
 import logging
 import random
 import shutil
@@ -939,7 +938,6 @@ class DistributedWorkloadDeployer:
                 if self.workload_details.workload == "vm":
                     self._setup_vm_resources(workload_name)
 
-
                 logger.info(
                     f"✅ Successfully deployed '{workload_name}' to {target_cluster.name}"
                 )
@@ -1238,8 +1236,8 @@ class DeploymentStatistics:
         logger.info(f"Total namespaces created:  {self.total_namespaces}")
         logger.info(f"Successful deployments:    {self.successful} ✅")
         logger.info(f"Failed deployments:        {self.failed} ❌")
-        logger.info(f"")
-        logger.info(f"Distribution:")
+        logger.info("")
+        logger.info("Distribution:")
         logger.info(f"  {cluster1_name}: {self.cluster1_count} namespaces")
         logger.info(f"  {cluster2_name}: {self.cluster2_count} namespaces")
         logger.info("=" * 70)
@@ -1317,7 +1315,7 @@ class WorkloadDeployer:
         self, current_count: int, policy_names: List[str]
     ) -> None:
         """Deploy distributed workloads."""
-        logger.info(f"\n📦 Deploying DISTRIBUTED workloads...")
+        logger.info("\n📦 Deploying DISTRIBUTED workloads...")
 
         # Setup Git repo
         kustomize_path = self._setup_git_repo()
@@ -1360,12 +1358,12 @@ class WorkloadDeployer:
             )
 
             if self.config.multi_ns_workload > 1:
-                logger.info(f"\n{'='*70}")
+                logger.info(f"\n{'=' * 70}")
                 logger.info(
                     f"[{i}/{self.config.workload_count}] Deploying workload group {dynamic_i} "
                     f"with {self.config.multi_ns_workload} namespaces"
                 )
-                logger.info(f"{'='*70}")
+                logger.info(f"{'=' * 70}")
             else:
                 logger.info(
                     f"\n--- [{i}/{self.config.workload_count}] Deploying: {base_workload_name} ---"
@@ -1387,7 +1385,7 @@ class WorkloadDeployer:
         self, current_count: int, policy_names: List[str]
     ) -> None:
         """Deploy ApplicationSet workloads."""
-        logger.info(f"\n📦 Deploying APPLICATIONSET workloads...")
+        logger.info("\n📦 Deploying APPLICATIONSET workloads...")
 
         # Load ApplicationSet template
         template_path = WORKLOAD_DATA_DIR / "sample_appset_rbd.yaml"
@@ -1419,7 +1417,7 @@ class WorkloadDeployer:
             logger.info(
                 f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---"
             )
-            
+
             # Setup VM resources if workload is VM type
             if self.workload_details.workload == "vm":
                 use_default_repo = (
@@ -1472,7 +1470,7 @@ class WorkloadDeployer:
         self, current_count: int, policy_names: List[str]
     ) -> None:
         """Deploy Subscription workloads."""
-        logger.info(f"\n📦 Deploying SUBSCRIPTION workloads...")
+        logger.info("\n📦 Deploying SUBSCRIPTION workloads...")
 
         # Load Subscription template
         template_path = WORKLOAD_DATA_DIR / "sample_sub_rbd.yaml"
@@ -1786,12 +1784,12 @@ class WorkloadDeployer:
             if self.config.multi_ns_workload > 1
             else ""
         )
-        
+
         # Add VM type suffix if workload is VM
         vm_type_suffix = ""
         if self.config.workload == "vm":
             vm_type_suffix = f"_{self.config.vm_type}"
-        
+
         file_name = (
             f"output_{ns_prefix}{self.config.workload_type}_"
             f"{self.config.workload_pvc_type}_{self.config.workload}{vm_type_suffix}{multi_suffix}_combined.yaml"
