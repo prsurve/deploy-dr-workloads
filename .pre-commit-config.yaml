@@ -8,6 +8,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: pylint
+        name: Run pylint
+        entry: pylint
+        language: system
+        types: [python]
+        files: ^deploy_workloads\.py$
+
       - id: tox
         name: Run tox tests
         entry: tox

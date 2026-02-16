@@ -44,7 +44,7 @@ jobs:
       
       - name: Run pylint
         run: |
-          pylint deploy_workloads.py --disable=C0111,C0103,R0913,R0914,R0915 --max-line-length=120
+          pylint deploy_workloads.py
       
       - name: Check code formatting with black
         run: |
