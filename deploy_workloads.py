@@ -905,6 +905,10 @@ class DistributedWorkloadDeployer:
         logger.info(
             f"📍 Selected cluster: {target_cluster.name} for workload group {counter}"
         )
+        skip_dr_for_vm = (
+            self.config.workload == "vm" 
+            and self.config.vm_type in ["vm-dv", "vm-dvt", "vm-pvc"]
+        )
 
         # Deploy to multiple namespaces if multi_ns_workload > 1
         for ns_index in range(1, self.config.multi_ns_workload + 1):
@@ -973,7 +977,7 @@ class DistributedWorkloadDeployer:
                 )
 
         # Create DR resources ONCE for ALL namespaces in the group
-        if self.config.protect_workload == "yes" and all_namespaces:
+        if self.config.protect_workload == "yes" and all_namespaces and not skip_dr_for_vm:
             try:
                 logger.info(
                     f"🔒 Creating DR protection for {len(all_namespaces)} namespace(s)"
@@ -988,6 +992,8 @@ class DistributedWorkloadDeployer:
                         break
             except Exception as e:
                 logger.error(f"❌ Failed to create DR resources: {e}")
+        elif skip_dr_for_vm:
+            logger.info(f"⚠️  Skipping DR protection for VM type: {self.config.vm_type}")
 
         # Update cluster workload count (once per workload group)
         target_cluster.workload_count += 1
@@ -1565,27 +1571,91 @@ class WorkloadDeployer:
         return kustomize_path
 
     def _get_policy_names(self) -> List[str]:
-        """Get list of DR policy names."""
+        """Get list of DR policy names associated with the configured clusters."""
         if self.config.drpolicy_name:
-            OpenShiftClient.validate_drpolicy(self.config.drpolicy_name)
+            # Validate that the specified policy includes both clusters
+            self._validate_drpolicy_clusters(self.config.drpolicy_name)
             return [self.config.drpolicy_name]
 
         try:
-            result = OpenShiftClient.run_command(["get", "drpolicy", "--no-headers"])
-            policy_names = [
-                line.split()[0]
-                for line in result.stdout.strip().split("\n")
-                if line.strip()
-            ]
-
-            if not policy_names:
+            # Get all DR policies
+            result = OpenShiftClient.run_command(["get", "drpolicy", "-o", "yaml"])
+            policies_data = yaml.safe_load(result.stdout)
+            
+            if not policies_data or "items" not in policies_data:
                 logger.error("❌ No DRPolicies found")
                 sys.exit(1)
+            
+            # Filter policies that include both configured clusters
+            matching_policies = []
+            cluster_names = {self.config.cluster1.name, self.config.cluster2.name}
+            
+            for policy in policies_data["items"]:
+                policy_name = policy["metadata"]["name"]
+                
+                # Get cluster names from the policy spec
+                policy_clusters = set(policy.get("spec", {}).get("drClusters", []))
+                
+                # Check if policy includes both our clusters
+                if cluster_names.issubset(policy_clusters):
+                    matching_policies.append(policy_name)
+                    logger.debug(f"Policy '{policy_name}' includes clusters: {policy_clusters}")
+            
+            if not matching_policies:
+                logger.error(
+                    f"❌ No DRPolicies found that include both clusters: "
+                    f"{self.config.cluster1.name} and {self.config.cluster2.name}"
+                )
+                logger.info("Available DR policies and their clusters:")
+                for policy in policies_data["items"]:
+                    policy_name = policy["metadata"]["name"]
+                    clusters = policy.get("spec", {}).get("drClusters", [])
+                    logger.info(f"  - {policy_name}: {clusters}")
+                sys.exit(1)
 
-            logger.info(f"Found DR policies: {', '.join(policy_names)}")
-            return policy_names
+            logger.info(
+                f"Found {len(matching_policies)} DR policy/policies matching clusters "
+                f"({self.config.cluster1.name}, {self.config.cluster2.name}): "
+                f"{', '.join(matching_policies)}"
+            )
+            return matching_policies
+            
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Failed to list DRPolicies: {e.stderr}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"❌ Error processing DRPolicies: {e}")
+            sys.exit(1)
+
+    def _validate_drpolicy_clusters(self, policy_name: str) -> None:
+        """Validate that a DR policy includes both configured clusters."""
+        try:
+            result = OpenShiftClient.run_command(["get", "drpolicy", policy_name, "-o", "yaml"])
+            policy_data = yaml.safe_load(result.stdout)
+            
+            # Get cluster names from the policy spec
+            policy_clusters = set(policy_data.get("spec", {}).get("drClusters", []))
+            cluster_names = {self.config.cluster1.name, self.config.cluster2.name}
+            
+            if not cluster_names.issubset(policy_clusters):
+                missing_clusters = cluster_names - policy_clusters
+                logger.error(
+                    f"❌ DRPolicy '{policy_name}' does not include required clusters: "
+                    f"{missing_clusters}"
+                )
+                logger.error(f"Policy clusters: {list(policy_clusters)}")
+                logger.error(f"Required clusters: {list(cluster_names)}")
+                sys.exit(1)
+            
+            logger.info(
+                f"✅ DRPolicy '{policy_name}' validated with clusters: {list(policy_clusters)}"
+            )
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ DRPolicy '{policy_name}' not found: {e.stderr}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"❌ Error validating DRPolicy '{policy_name}': {e}")
             sys.exit(1)
 
     def _update_appset_yaml(
@@ -1606,6 +1676,10 @@ class WorkloadDeployer:
         # Determine deployment cluster
         workload_cluster = self.config.deploy_on or random.choice(
             [self.config.cluster1.name, self.config.cluster2.name]
+        )
+        skip_dr_for_vm = (
+            self.config.workload == "vm" 
+            and self.config.vm_type in ["vm-dv", "vm-dvt", "vm-pvc"]
         )
 
         for item in updated_data:
@@ -1637,7 +1711,7 @@ class WorkloadDeployer:
                 ]["matchExpressions"][0]["values"][0] = workload_cluster
                 item["spec"]["clusterSets"][0] = self.config.clusterset
 
-                if self.config.protect_workload == "yes":
+                if self.config.protect_workload == "yes" and not skip_dr_for_vm:
                     item["metadata"].setdefault("annotations", {}).setdefault(
                         "cluster.open-cluster-management.io/experimental-scheduling-disable",
                         "true",
@@ -1662,10 +1736,12 @@ class WorkloadDeployer:
                     )
 
         # Filter out DRPC if protection is disabled
-        if self.config.protect_workload != "yes":
+        if self.config.protect_workload != "yes" or skip_dr_for_vm:
             updated_data = [
                 item for item in updated_data if item["kind"] != "DRPlacementControl"
             ]
+            if skip_dr_for_vm:
+                logger.info(f"⚠ Skipping DRPC creation for VM type: {self.config.vm_type}")
 
         return updated_data, workload_cluster
 
@@ -1690,6 +1766,12 @@ class WorkloadDeployer:
         workload_cluster = self.config.deploy_on or random.choice(
             [self.config.cluster1.name, self.config.cluster2.name]
         )
+
+        skip_dr_for_vm = (
+            self.config.workload == "vm" 
+            and self.config.vm_type in ["vm-dv", "vm-dvt", "vm-pvc"]
+        )
+
 
         for item in updated_data:
             if item["kind"] == "Namespace":
@@ -1735,7 +1817,7 @@ class WorkloadDeployer:
                 ]["matchExpressions"][0]["values"][0] = workload_cluster
                 item["spec"]["clusterSets"][0] = self.config.clusterset
 
-                if self.config.protect_workload == "yes":
+                if self.config.protect_workload == "yes" and not skip_dr_for_vm:
                     item["metadata"].setdefault("annotations", {}).setdefault(
                         "cluster.open-cluster-management.io/experimental-scheduling-disable",
                         "true",
@@ -1767,10 +1849,12 @@ class WorkloadDeployer:
                     )
 
         # Filter out DRPC if protection is disabled
-        if self.config.protect_workload != "yes":
+        if self.config.protect_workload != "yes" or skip_dr_for_vm:
             updated_data = [
                 item for item in updated_data if item["kind"] != "DRPlacementControl"
             ]
+            if skip_dr_for_vm:
+                logger.info(f"⚠ Skipping DRPC creation for VM type: {self.config.vm_type}")
 
         return updated_data, workload_cluster
 
