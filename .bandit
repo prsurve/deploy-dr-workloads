@@ -1,0 +1,17 @@
+# Bandit configuration for deploy_workloads.py
+# Skip low-severity false positives for this deployment script
+
+# B404 - import subprocess: Required for running oc/kubectl commands
+# B311 - random.choice: Used only for cluster selection, not cryptographic purposes
+# B607 - start_process_with_partial_path: git command is standard on systems
+# B603 - subprocess_without_shell_equals_true: Intentionally not using shell=True for security
+
+exclude_dirs:
+  - .tox
+  - .git
+
+skips:
+  - B404
+  - B311
+  - B607
+  - B603

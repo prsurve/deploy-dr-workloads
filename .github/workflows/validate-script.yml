@@ -75,8 +75,8 @@ jobs:
       
       - name: Run Bandit security scan
         run: |
-          bandit -r deploy_workloads.py -f json -o bandit-report.json
-          bandit -r deploy_workloads.py
+          bandit -r deploy_workloads.py -f json -o bandit-report.json -c .bandit
+          bandit -r deploy_workloads.py -c .bandit
       
       - name: Check for known vulnerabilities in dependencies
         run: |
