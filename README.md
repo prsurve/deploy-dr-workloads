@@ -123,8 +123,8 @@ pip install pyyaml
 
 5. **Set up pre-commit hooks (optional but recommended):**
    ```bash
-   # Install pre-commit
-   pip install pre-commit tox
+   # Install pre-commit and linting tools
+   pip install pre-commit tox pylint mypy types-PyYAML
 
    # Install the git hooks
    pre-commit install
@@ -135,6 +135,8 @@ pip install pyyaml
 
    The pre-commit hooks will automatically:
    - Run flake8 to check code quality
+   - Run pylint for additional code analysis
+   - Run mypy for type checking
    - Run tox to validate Python syntax
    - Prevent commits with linting errors
 
