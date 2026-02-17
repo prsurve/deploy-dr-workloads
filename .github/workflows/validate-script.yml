@@ -32,31 +32,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyyaml
-          pip install pylint flake8 black mypy
+          pip install pylint flake8 black mypy types-PyYAML
       
       - name: Check Python syntax
         run: |
           python -m py_compile deploy_workloads.py
       
       - name: Run flake8
-        continue-on-error: true
         run: |
           flake8 deploy_workloads.py --max-line-length=120 --ignore=E501,W503
       
       - name: Run pylint
-        continue-on-error: true
         run: |
-          pylint deploy_workloads.py --disable=C0111,C0103,R0913,R0914,R0915 --max-line-length=120
+          pylint deploy_workloads.py
       
       - name: Check code formatting with black
-        continue-on-error: true
         run: |
-          black --check --line-length=120 deploy_workloads.py || true
+          black --check --line-length=120 deploy_workloads.py
       
       - name: Type checking with mypy
-        continue-on-error: true
         run: |
-          mypy deploy_workloads.py --ignore-missing-imports || true
+          mypy deploy_workloads.py --ignore-missing-imports
 
   security-scan:
     name: Security Scan
@@ -78,16 +74,14 @@ jobs:
           pip install bandit safety
       
       - name: Run Bandit security scan
-        continue-on-error: true
         run: |
-          bandit -r deploy_workloads.py -f json -o bandit-report.json || true
-          bandit -r deploy_workloads.py || true
+          bandit -r deploy_workloads.py -f json -o bandit-report.json -c .bandit
+          bandit -r deploy_workloads.py -c .bandit
       
       - name: Check for known vulnerabilities in dependencies
-        continue-on-error: true
         run: |
           pip install pyyaml
-          safety check || true
+          safety check
       
       - name: Upload security scan results
         uses: actions/upload-artifact@v4

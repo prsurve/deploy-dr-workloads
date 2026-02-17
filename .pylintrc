@@ -1,0 +1,49 @@
+[MASTER]
+# Use multiple processes to speed up Pylint
+jobs=1
+
+[MESSAGES CONTROL]
+# Disable specific pylint checks that don't apply to this project
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    R0915,  # too-many-statements
+    C0302,  # too-many-lines
+    R0902,  # too-many-instance-attributes
+    W1203,  # logging-fstring-interpolation
+    W1514,  # unspecified-encoding
+    R0903,  # too-few-public-methods
+    R1705,  # no-else-return
+    R0917,  # too-many-positional-arguments
+    W0718,  # broad-exception-caught
+    R0912,  # too-many-branches
+    W0613   # unused-argument
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=120
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names=i,j,k,ex,Run,_,f,logger
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+# Maximum number of locals for function / method body
+max-locals=20
+
+# Maximum number of return / yield for function / method body
+max-returns=10
+
+# Maximum number of branch for function / method body
+max-branches=15
+
+# Maximum number of statements in function / method body
+max-statements=60
+
+# Maximum number of attributes for a class
+max-attributes=25

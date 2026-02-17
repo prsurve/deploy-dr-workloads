@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=120', '--ignore=E501,W503']
+        files: ^deploy_workloads\.py$
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: Run pylint
+        entry: pylint
+        language: system
+        types: [python]
+        files: ^deploy_workloads\.py$
+
+      - id: mypy
+        name: Run mypy type checking
+        entry: mypy
+        language: system
+        types: [python]
+        files: ^deploy_workloads\.py$
+        args: ['--ignore-missing-imports']
+
+      - id: tox
+        name: Run tox tests
+        entry: tox
+        language: system
+        pass_filenames: false
+        always_run: true
