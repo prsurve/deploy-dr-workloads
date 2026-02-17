@@ -28,9 +28,7 @@ import yaml
 
 # --- Configuration ---
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -166,9 +164,7 @@ class ConfigLoader:
             type=Path,
             help="Path to a config.yaml file. CLI args override config values.",
         )
-        parser.add_argument(
-            "-v", "--verbose", action="store_true", help="Enable DEBUG level logging"
-        )
+        parser.add_argument("-v", "--verbose", action="store_true", help="Enable DEBUG level logging")
 
         # Cluster configuration
         parser.add_argument("-clusterset", type=str, help="Cluster set name")
@@ -190,9 +186,7 @@ class ConfigLoader:
             choices=["appset", "sub", "dist"],
             help="Workload type",
         )
-        parser.add_argument(
-            "-workload_count", type=int, help="Number of workloads to deploy"
-        )
+        parser.add_argument("-workload_count", type=int, help="Number of workloads to deploy")
         parser.add_argument(
             "-workload",
             type=str,
@@ -218,12 +212,8 @@ class ConfigLoader:
         )
 
         # Deployment options
-        parser.add_argument(
-            "-deploy_on", type=str, help="Deploy workload on specific cluster"
-        )
-        parser.add_argument(
-            "-output_dir", type=str, help="Directory for output YAML files"
-        )
+        parser.add_argument("-deploy_on", type=str, help="Deploy workload on specific cluster")
+        parser.add_argument("-output_dir", type=str, help="Directory for output YAML files")
         parser.add_argument(
             "-protect_workload",
             type=str,
@@ -318,9 +308,7 @@ class ConfigValidator:
     @staticmethod
     def _check_required_args(args: argparse.Namespace) -> None:
         """Check that all required arguments are provided."""
-        missing = [
-            arg for arg in ConfigValidator.REQUIRED_ARGS if getattr(args, arg) is None
-        ]
+        missing = [arg for arg in ConfigValidator.REQUIRED_ARGS if getattr(args, arg) is None]
 
         if missing:
             logger.error(f"❌ Missing required arguments: {', '.join(missing)}")
@@ -344,16 +332,12 @@ class ConfigValidator:
 
         # Validate deploy_on cluster name if specified
         if args.deploy_on and args.deploy_on not in [args.c1_name, args.c2_name]:
-            logger.error(
-                f"❌ Invalid deploy_on cluster: {args.deploy_on}. Must be {args.c1_name} or {args.c2_name}"
-            )
+            logger.error(f"❌ Invalid deploy_on cluster: {args.deploy_on}. Must be {args.c1_name} or {args.c2_name}")
             sys.exit(1)
 
         # Validate multi_ns_workload with workload_type
         if args.multi_ns_workload > 1 and args.workload_type != "dist":
-            logger.error(
-                "❌ -multi_ns_workload is only supported with -workload_type dist"
-            )
+            logger.error("❌ -multi_ns_workload is only supported with -workload_type dist")
             sys.exit(1)
 
     @staticmethod
@@ -374,9 +358,7 @@ class ConfigValidator:
                 validation_failed_list.append(cl_names)
 
         if validation_failed_list:
-            logger.error(
-                f"❌ Validation for Managed cluster failed {validation_failed_list}"
-            )
+            logger.error(f"❌ Validation for Managed cluster failed {validation_failed_list}")
 
 
 # --- Cluster Selection ---
@@ -433,9 +415,7 @@ class ClusterSelector:
             cluster = self.cluster1
         else:
             cluster = self.cluster2
-        logger.debug(
-            f"Least loaded selected: {cluster.name} (count: {cluster.workload_count})"
-        )
+        logger.debug(f"Least loaded selected: {cluster.name} (count: {cluster.workload_count})")
         return cluster
 
     def _get_cluster_by_name(self, name: str) -> ClusterConfig:
@@ -455,13 +435,9 @@ class WorkloadManager:
     """Manages workload configurations and naming."""
 
     @staticmethod
-    def get_details(
-        pvc_type: str, workload: str, vm_type: str = "vm-pvc"
-    ) -> WorkloadDetails:
+    def get_details(pvc_type: str, workload: str, vm_type: str = "vm-pvc") -> WorkloadDetails:
         """Get workload details based on PVC type and workload."""
-        logger.debug(
-            f"Getting workload details: pvc_type={pvc_type}, workload={workload}, vm_type={vm_type}"
-        )
+        logger.debug(f"Getting workload details: pvc_type={pvc_type}, workload={workload}, vm_type={vm_type}")
 
         if workload == "busybox":
             return WorkloadManager._get_busybox_details(pvc_type)
@@ -529,9 +505,7 @@ class WorkloadManager:
     ) -> str:
         """Generate a standardized workload/namespace name."""
         # Determine type prefix
-        type_prefix = {"appset": "app", "sub": "sub", "dist": "imp"}.get(
-            workload_type, "imp"
-        )
+        type_prefix = {"appset": "app", "sub": "sub", "dist": "imp"}.get(workload_type, "imp")
 
         # Handle CG naming
         workload_short = workload
@@ -670,28 +644,20 @@ class OpenShiftClient:
     def create_project(cluster: ClusterConfig, project_name: str) -> None:
         """Create a project if it doesn't exist."""
         try:
-            OpenShiftClient.run_command(
-                ["new-project", project_name], cluster.kubeconfig
-            )
+            OpenShiftClient.run_command(["new-project", project_name], cluster.kubeconfig)
             logger.info(f"✅ Project '{project_name}' created on {cluster.name}")
         except subprocess.CalledProcessError as e:
             if "already exists" in e.stderr:
                 logger.info(f"⚠ Project '{project_name}' exists on {cluster.name}")
             else:
-                logger.error(
-                    f"❌ Failed to create project '{project_name}': {e.stderr}"
-                )
+                logger.error(f"❌ Failed to create project '{project_name}': {e.stderr}")
                 raise
 
     @staticmethod
-    def apply_kustomize(
-        cluster: ClusterConfig, kustomize_path: Path, namespace: str
-    ) -> None:
+    def apply_kustomize(cluster: ClusterConfig, kustomize_path: Path, namespace: str) -> None:
         """Apply kustomize configuration to a namespace."""
         try:
-            logger.info(
-                f"Applying kustomize from {kustomize_path} to {namespace} on {cluster.name}"
-            )
+            logger.info(f"Applying kustomize from {kustomize_path} to {namespace} on {cluster.name}")
             OpenShiftClient.run_command(
                 ["apply", "-k", str(kustomize_path), "--namespace", namespace],
                 cluster.kubeconfig,
@@ -702,14 +668,10 @@ class OpenShiftClient:
             raise
 
     @staticmethod
-    def create_resource(
-        cluster: ClusterConfig, yaml_file: Path, resource_label: str
-    ) -> None:
+    def create_resource(cluster: ClusterConfig, yaml_file: Path, resource_label: str) -> None:
         """Create a resource from YAML file."""
         try:
-            OpenShiftClient.run_command(
-                ["create", "-f", str(yaml_file)], cluster.kubeconfig
-            )
+            OpenShiftClient.run_command(["create", "-f", str(yaml_file)], cluster.kubeconfig)
             logger.info(f"✅ Created {resource_label} on {cluster.name}")
         except subprocess.CalledProcessError as e:
             if "AlreadyExists" in e.stderr or "already exists" in e.stderr:
@@ -723,15 +685,9 @@ class OpenShiftClient:
         """Get clusterset name for a cluster."""
         logger.debug(f"Getting clusterset for {cluster_name}")
         try:
-            result = OpenShiftClient.run_command(
-                ["get", "managedcluster", cluster_name, "-o", "yaml"]
-            )
+            result = OpenShiftClient.run_command(["get", "managedcluster", cluster_name, "-o", "yaml"])
             data = yaml.safe_load(result.stdout)
-            clusterset = (
-                data.get("metadata", {})
-                .get("labels", {})
-                .get("cluster.open-cluster-management.io/clusterset")
-            )
+            clusterset = data.get("metadata", {}).get("labels", {}).get("cluster.open-cluster-management.io/clusterset")
             logger.debug(f"Found clusterset: {clusterset}")
             return clusterset
         except subprocess.CalledProcessError as e:
@@ -750,9 +706,7 @@ class OpenShiftClient:
             sys.exit(1)
 
     @staticmethod
-    def get_existing_workload_count(
-        workload_type: str, pvc_type: str, workload: str, cg: bool, kubeconfig: str
-    ) -> int:
+    def get_existing_workload_count(workload_type: str, pvc_type: str, workload: str, cg: bool, kubeconfig: str) -> int:
         """Get count of existing workloads."""
         logger.debug("Getting existing workload count...")
         try:
@@ -779,18 +733,14 @@ class OpenShiftClient:
             # Adjust search terms for CG
             search_workload = workload
             if cg and workload_type in ("appset", "sub"):
-                search_workload = {"busybox": "bb", "mysql": "my"}.get(
-                    workload, workload
-                )
+                search_workload = {"busybox": "bb", "mysql": "my"}.get(workload, workload)
 
             search_prefix = "imp-" if workload_type == "dist" else ""
 
             count = sum(
                 1
                 for line in result.stdout.splitlines()
-                if search_prefix in line
-                and pvc_type in line
-                and search_workload in line
+                if search_prefix in line and pvc_type in line and search_workload in line
             )
 
             logger.info(f"Found {count} existing '{workload_type}' workloads")
@@ -821,9 +771,7 @@ class VMResourceManager:
         OpenShiftClient.create_project(cluster2, namespace)
 
         # Create secrets
-        VMResourceManager._create_vm_secrets(
-            cluster1, cluster2, namespace, use_default_repo
-        )
+        VMResourceManager._create_vm_secrets(cluster1, cluster2, namespace, use_default_repo)
 
     @staticmethod
     def _create_vm_secrets(
@@ -856,12 +804,8 @@ class VMResourceManager:
             YAMLHelper.write([secret_data], temp_path)
 
             # Create on both clusters
-            OpenShiftClient.create_resource(
-                cluster1, temp_path, f"{secret_file.stem} in {namespace}"
-            )
-            OpenShiftClient.create_resource(
-                cluster2, temp_path, f"{secret_file.stem} in {namespace}"
-            )
+            OpenShiftClient.create_resource(cluster1, temp_path, f"{secret_file.stem} in {namespace}")
+            OpenShiftClient.create_resource(cluster2, temp_path, f"{secret_file.stem} in {namespace}")
 
             # Cleanup
             temp_path.unlink()
@@ -888,9 +832,7 @@ class DistributedWorkloadDeployer:
         self.cluster_selector = cluster_selector
         self.kustomize_path = kustomize_path
 
-    def deploy(
-        self, base_workload_name: str, counter: int, policy_name: str
-    ) -> List[DeploymentResult]:
+    def deploy(self, base_workload_name: str, counter: int, policy_name: str) -> List[DeploymentResult]:
         """
         Deploy workload with support for multi-namespace deployment.
 
@@ -901,9 +843,7 @@ class DistributedWorkloadDeployer:
 
         # Select target cluster (same cluster for all multi-ns workloads)
         target_cluster = self.cluster_selector.select_cluster()
-        logger.info(
-            f"📍 Selected cluster: {target_cluster.name} for workload group {counter}"
-        )
+        logger.info(f"📍 Selected cluster: {target_cluster.name} for workload group {counter}")
 
         # Deploy to multiple namespaces if multi_ns_workload > 1
         for ns_index in range(1, self.config.multi_ns_workload + 1):
@@ -923,9 +863,7 @@ class DistributedWorkloadDeployer:
                 workload_name = base_workload_name
 
             all_namespaces.append(workload_name)
-            logger.info(
-                f"🚀 Deploying to namespace: {workload_name} on {target_cluster.name}"
-            )
+            logger.info(f"🚀 Deploying to namespace: {workload_name} on {target_cluster.name}")
 
             try:
                 # Create namespaces on both clusters (for DR)
@@ -938,9 +876,7 @@ class DistributedWorkloadDeployer:
                 if self.workload_details.workload == "vm":
                     self._setup_vm_resources(workload_name)
 
-                logger.info(
-                    f"✅ Successfully deployed '{workload_name}' to {target_cluster.name}"
-                )
+                logger.info(f"✅ Successfully deployed '{workload_name}' to {target_cluster.name}")
 
                 results.append(
                     DeploymentResult(
@@ -949,9 +885,7 @@ class DistributedWorkloadDeployer:
                         namespace=workload_name,
                         cluster_name=target_cluster.name,
                         yaml_docs=[],  # DR resources created once per group below
-                        multi_ns_index=(
-                            ns_index if self.config.multi_ns_workload > 1 else None
-                        ),
+                        multi_ns_index=(ns_index if self.config.multi_ns_workload > 1 else None),
                     )
                 )
 
@@ -964,21 +898,15 @@ class DistributedWorkloadDeployer:
                         namespace=workload_name,
                         cluster_name=target_cluster.name,
                         error_message=str(e),
-                        multi_ns_index=(
-                            ns_index if self.config.multi_ns_workload > 1 else None
-                        ),
+                        multi_ns_index=(ns_index if self.config.multi_ns_workload > 1 else None),
                     )
                 )
 
         # Create DR resources ONCE for ALL namespaces in the group
         if self.config.protect_workload == "yes" and all_namespaces:
             try:
-                logger.info(
-                    f"🔒 Creating DR protection for {len(all_namespaces)} namespace(s)"
-                )
-                yaml_docs = self._create_dr_resources_for_group(
-                    all_namespaces, counter, target_cluster, policy_name
-                )
+                logger.info(f"🔒 Creating DR protection for {len(all_namespaces)} namespace(s)")
+                yaml_docs = self._create_dr_resources_for_group(all_namespaces, counter, target_cluster, policy_name)
                 # Add DR resources to first successful result
                 for result in results:
                     if result.success:
@@ -1000,19 +928,13 @@ class DistributedWorkloadDeployer:
 
     def _deploy_to_cluster(self, cluster: ClusterConfig, namespace: str) -> None:
         """Deploy workload to the specified cluster using kustomize."""
-        logger.debug(
-            f"Deploying workload to {cluster.name} in namespace {namespace}..."
-        )
+        logger.debug(f"Deploying workload to {cluster.name} in namespace {namespace}...")
         OpenShiftClient.apply_kustomize(cluster, self.kustomize_path, namespace)
 
     def _setup_vm_resources(self, namespace: str) -> None:
         """Setup VM resources if workload is VM type."""
-        use_default_repo = (
-            self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
-        )
-        VMResourceManager.setup_vm_resources(
-            self.config.cluster1, self.config.cluster2, namespace, use_default_repo
-        )
+        use_default_repo = self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
+        VMResourceManager.setup_vm_resources(self.config.cluster1, self.config.cluster2, namespace, use_default_repo)
 
     def _create_dr_resources_for_group(
         self,
@@ -1025,9 +947,7 @@ class DistributedWorkloadDeployer:
         Create DR protection resources for a GROUP of namespaces.
         Creates ONE DRPC that protects ALL namespaces in the group.
         """
-        logger.debug(
-            f"Creating DR resources for {len(namespaces)} namespace(s): {namespaces}"
-        )
+        logger.debug(f"Creating DR resources for {len(namespaces)} namespace(s): {namespaces}")
 
         yaml_docs = []
 
@@ -1072,9 +992,7 @@ class DistributedWorkloadDeployer:
             self._configure_direct_protection(drpc_template)
         else:
             # For recipe with multi-namespace, create recipes for all namespaces
-            self._configure_recipe_protection_multi(
-                drpc_template, namespaces, drpc_name
-            )
+            self._configure_recipe_protection_multi(drpc_template, namespaces, drpc_name)
 
         # Add CG annotation if enabled
         if self.config.cg:
@@ -1092,9 +1010,7 @@ class DistributedWorkloadDeployer:
 
         return yaml_docs
 
-    def _create_dr_resources(
-        self, workload_name: str, target_cluster: ClusterConfig, policy_name: str
-    ) -> List[Dict]:
+    def _create_dr_resources(self, workload_name: str, target_cluster: ClusterConfig, policy_name: str) -> List[Dict]:
         """
         Create DR protection resources for a single namespace.
         (Kept for backward compatibility with single namespace deployments)
@@ -1112,9 +1028,7 @@ class DistributedWorkloadDeployer:
         pvc_sel["key"] = self.workload_details.pvc_selector_key
         pvc_sel["values"] = [self.workload_details.pvc_selector_value]
 
-        kube_sel = drpc["spec"]["kubeObjectProtection"]["kubeObjectSelector"][
-            "matchExpressions"
-        ][0]
+        kube_sel = drpc["spec"]["kubeObjectProtection"]["kubeObjectSelector"]["matchExpressions"][0]
         kube_sel["key"] = self.workload_details.pod_selector_key
         kube_sel["values"] = [self.workload_details.pod_selector_value]
 
@@ -1128,9 +1042,7 @@ class DistributedWorkloadDeployer:
         if "kubeObjectSelector" in kube_prot:
             del kube_prot["kubeObjectSelector"]
 
-    def _configure_recipe_protection_multi(
-        self, drpc: Dict, namespaces: List[str], drpc_name: str
-    ) -> None:
+    def _configure_recipe_protection_multi(self, drpc: Dict, namespaces: List[str], drpc_name: str) -> None:
         """
         Configure DRPC for recipe-based protection with multiple namespaces.
         Note: Recipe references will point to individual namespace recipes.
@@ -1167,9 +1079,7 @@ class DistributedWorkloadDeployer:
         recipe_template["spec"]["workflows"][0]["sequence"][1]["group"] = workload_name
         recipe_template["spec"]["workflows"][1]["sequence"][0]["group"] = workload_name
         recipe_template["spec"]["hooks"][0]["namespace"] = workload_name
-        recipe_template["spec"]["hooks"][0][
-            "nameSelector"
-        ] = f"{self.workload_details.workload}-*"
+        recipe_template["spec"]["hooks"][0]["nameSelector"] = f"{self.workload_details.workload}-*"
 
         vol_spec = recipe_template["spec"]["volumes"]
         vol_spec["includedNamespaces"] = [workload_name]
@@ -1181,12 +1091,8 @@ class DistributedWorkloadDeployer:
         temp_recipe_path = OUTPUT_DATA_DIR / f"temp-recipe-{workload_name}.yaml"
         YAMLHelper.write([recipe_template], temp_recipe_path)
 
-        OpenShiftClient.create_resource(
-            self.config.cluster1, temp_recipe_path, f"recipe for {workload_name}"
-        )
-        OpenShiftClient.create_resource(
-            self.config.cluster2, temp_recipe_path, f"recipe for {workload_name}"
-        )
+        OpenShiftClient.create_resource(self.config.cluster1, temp_recipe_path, f"recipe for {workload_name}")
+        OpenShiftClient.create_resource(self.config.cluster2, temp_recipe_path, f"recipe for {workload_name}")
 
         temp_recipe_path.unlink()
 
@@ -1222,9 +1128,7 @@ class DeploymentStatistics:
         else:
             self.failed += 1
 
-    def print_summary(
-        self, cluster1_name: str, cluster2_name: str, multi_ns_workload: int
-    ) -> None:
+    def print_summary(self, cluster1_name: str, cluster2_name: str, multi_ns_workload: int) -> None:
         """Print deployment summary."""
         logger.info("=" * 70)
         logger.info("DEPLOYMENT SUMMARY")
@@ -1256,27 +1160,19 @@ class WorkloadDeployer:
 
     def __init__(self, config: DeploymentConfig):
         self.config = config
-        self.workload_details = WorkloadManager.get_details(
-            config.workload_pvc_type, config.workload, config.vm_type
-        )
+        self.workload_details = WorkloadManager.get_details(config.workload_pvc_type, config.workload, config.vm_type)
         self.statistics = DeploymentStatistics(total_requested=config.workload_count)
 
     def deploy_all(self) -> None:
         """Deploy all workloads."""
-        logger.info(
-            f"🚀 Starting deployment of {self.config.workload_count} workload group(s)..."
-        )
+        logger.info(f"🚀 Starting deployment of {self.config.workload_count} workload group(s)...")
         logger.info(f"Workload type: {self.config.workload_type}")
         logger.info(f"PVC type: {self.config.workload_pvc_type}")
         logger.info(f"Workload: {self.config.workload}")
 
         if self.config.multi_ns_workload > 1:
-            logger.info(
-                f"Multi-namespace mode: {self.config.multi_ns_workload} namespaces per workload group"
-            )
-            logger.info(
-                f"Total namespaces to create: {self.config.workload_count * self.config.multi_ns_workload}"
-            )
+            logger.info(f"Multi-namespace mode: {self.config.multi_ns_workload} namespaces per workload group")
+            logger.info(f"Total namespaces to create: {self.config.workload_count * self.config.multi_ns_workload}")
 
         # Get policy names
         policy_names = self._get_policy_names()
@@ -1310,9 +1206,7 @@ class WorkloadDeployer:
 
         logger.info("✅ Script execution finished")
 
-    def _deploy_distributed_workloads(
-        self, current_count: int, policy_names: List[str]
-    ) -> None:
+    def _deploy_distributed_workloads(self, current_count: int, policy_names: List[str]) -> None:
         """Deploy distributed workloads."""
         logger.info("\n📦 Deploying DISTRIBUTED workloads...")
 
@@ -1330,14 +1224,10 @@ class WorkloadDeployer:
             ClusterSelectionStrategy.ROUND_ROBIN,
         )
 
-        cluster_selector = ClusterSelector(
-            self.config.cluster1, self.config.cluster2, strategy, self.config.deploy_on
-        )
+        cluster_selector = ClusterSelector(self.config.cluster1, self.config.cluster2, strategy, self.config.deploy_on)
 
         # Create deployer
-        deployer = DistributedWorkloadDeployer(
-            self.config, self.workload_details, cluster_selector, kustomize_path
-        )
+        deployer = DistributedWorkloadDeployer(self.config, self.workload_details, cluster_selector, kustomize_path)
 
         # Deploy each workload group
         all_output_yaml = []
@@ -1364,9 +1254,7 @@ class WorkloadDeployer:
                 )
                 logger.info(f"{'=' * 70}")
             else:
-                logger.info(
-                    f"\n--- [{i}/{self.config.workload_count}] Deploying: {base_workload_name} ---"
-                )
+                logger.info(f"\n--- [{i}/{self.config.workload_count}] Deploying: {base_workload_name} ---")
 
             # Deploy returns list of results (one per namespace)
             results = deployer.deploy(base_workload_name, dynamic_i, policy_name)
@@ -1380,9 +1268,7 @@ class WorkloadDeployer:
         # Write combined output
         self._write_combined_output(all_output_yaml)
 
-    def _deploy_applicationset_workloads(
-        self, current_count: int, policy_names: List[str]
-    ) -> None:
+    def _deploy_applicationset_workloads(self, current_count: int, policy_names: List[str]) -> None:
         """Deploy ApplicationSet workloads."""
         logger.info("\n📦 Deploying APPLICATIONSET workloads...")
 
@@ -1413,15 +1299,11 @@ class WorkloadDeployer:
                 self.config.recipe,
             )
 
-            logger.info(
-                f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---"
-            )
+            logger.info(f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---")
 
             # Setup VM resources if workload is VM type
             if self.workload_details.workload == "vm":
-                use_default_repo = (
-                    self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
-                )
+                use_default_repo = self.config.repo == DEFAULT_GIT_REPO or not self.config.git_token
                 VMResourceManager.setup_vm_resources(
                     self.config.cluster1,
                     self.config.cluster2,
@@ -1436,9 +1318,7 @@ class WorkloadDeployer:
                 )
                 all_output_yaml.extend(updated_yaml)
 
-                logger.info(
-                    f"✅ ApplicationSet '{workload_name}' YAML created for {workload_cluster}"
-                )
+                logger.info(f"✅ ApplicationSet '{workload_name}' YAML created for {workload_cluster}")
 
                 # Track deployment in statistics
                 result = DeploymentResult(
@@ -1465,9 +1345,7 @@ class WorkloadDeployer:
         # Write combined output
         self._write_combined_output(all_output_yaml)
 
-    def _deploy_subscription_workloads(
-        self, current_count: int, policy_names: List[str]
-    ) -> None:
+    def _deploy_subscription_workloads(self, current_count: int, policy_names: List[str]) -> None:
         """Deploy Subscription workloads."""
         logger.info("\n📦 Deploying SUBSCRIPTION workloads...")
 
@@ -1498,9 +1376,7 @@ class WorkloadDeployer:
                 self.config.recipe,
             )
 
-            logger.info(
-                f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---"
-            )
+            logger.info(f"\n--- [{i}/{self.config.workload_count}] Creating: {workload_name} ---")
 
             try:
                 # Update Subscription YAML
@@ -1509,9 +1385,7 @@ class WorkloadDeployer:
                 )
                 all_output_yaml.extend(updated_yaml)
 
-                logger.info(
-                    f"✅ Subscription '{workload_name}' YAML created for {workload_cluster}"
-                )
+                logger.info(f"✅ Subscription '{workload_name}' YAML created for {workload_cluster}")
 
                 # Track deployment in statistics
                 result = DeploymentResult(
@@ -1569,11 +1443,7 @@ class WorkloadDeployer:
 
         try:
             result = OpenShiftClient.run_command(["get", "drpolicy", "--no-headers"])
-            policy_names = [
-                line.split()[0]
-                for line in result.stdout.strip().split("\n")
-                if line.strip()
-            ]
+            policy_names = [line.split()[0] for line in result.stdout.strip().split("\n") if line.strip()]
 
             if not policy_names:
                 logger.error("❌ No DRPolicies found")
@@ -1608,30 +1478,20 @@ class WorkloadDeployer:
         for item in updated_data:
             if item["kind"] == "ApplicationSet":
                 item["metadata"]["name"] = workload_name
-                item["spec"]["generators"][0]["clusterDecisionResource"][
-                    "labelSelector"
-                ]["matchLabels"][
+                item["spec"]["generators"][0]["clusterDecisionResource"]["labelSelector"]["matchLabels"][
                     "cluster.open-cluster-management.io/placement"
                 ] = f"{workload_name}-placs"
-                item["spec"]["template"]["metadata"][
-                    "name"
-                ] = f"{workload_name}-{{{{name}}}}"
-                item["spec"]["template"]["spec"]["sources"][0][
-                    "path"
-                ] = self.workload_details.path
+                item["spec"]["template"]["metadata"]["name"] = f"{workload_name}-{{{{name}}}}"
+                item["spec"]["template"]["spec"]["sources"][0]["path"] = self.workload_details.path
                 item["spec"]["template"]["spec"]["sources"][0]["repoURL"] = git_repo
-                item["spec"]["template"]["spec"]["sources"][0][
-                    "targetRevision"
-                ] = git_branch
-                item["spec"]["template"]["spec"]["destination"][
-                    "namespace"
-                ] = workload_name
+                item["spec"]["template"]["spec"]["sources"][0]["targetRevision"] = git_branch
+                item["spec"]["template"]["spec"]["destination"]["namespace"] = workload_name
 
             elif item["kind"] == "Placement":
                 item["metadata"]["name"] = f"{workload_name}-placs"
-                item["spec"]["predicates"][0]["requiredClusterSelector"][
-                    "labelSelector"
-                ]["matchExpressions"][0]["values"][0] = workload_cluster
+                item["spec"]["predicates"][0]["requiredClusterSelector"]["labelSelector"]["matchExpressions"][0][
+                    "values"
+                ][0] = workload_cluster
                 item["spec"]["clusterSets"][0] = self.config.clusterset
 
                 if self.config.protect_workload == "yes":
@@ -1640,10 +1500,7 @@ class WorkloadDeployer:
                         "true",
                     )
 
-            elif (
-                item["kind"] == "DRPlacementControl"
-                and self.config.protect_workload == "yes"
-            ):
+            elif item["kind"] == "DRPlacementControl" and self.config.protect_workload == "yes":
                 item["metadata"]["name"] = f"{workload_name}-placs-drpc"
                 item["spec"]["drPolicyRef"]["name"] = policy_name
                 item["spec"]["placementRef"]["name"] = f"{workload_name}-placs"
@@ -1660,9 +1517,7 @@ class WorkloadDeployer:
 
         # Filter out DRPC if protection is disabled
         if self.config.protect_workload != "yes":
-            updated_data = [
-                item for item in updated_data if item["kind"] != "DRPlacementControl"
-            ]
+            updated_data = [item for item in updated_data if item["kind"] != "DRPlacementControl"]
 
         return updated_data, workload_cluster
 
@@ -1699,9 +1554,7 @@ class WorkloadDeployer:
             elif item["kind"] == "Application":
                 item["metadata"]["name"] = workload_name
                 item["metadata"]["namespace"] = workload_name
-                item["spec"]["selector"]["matchExpressions"][0]["values"][
-                    0
-                ] = workload_name
+                item["spec"]["selector"]["matchExpressions"][0]["values"][0] = workload_name
 
             elif item["kind"] == "Channel":
                 item["metadata"]["name"] = channel
@@ -1711,25 +1564,19 @@ class WorkloadDeployer:
             elif item["kind"] == "Subscription":
                 item["metadata"]["name"] = f"{workload_name}-sub"
                 item["metadata"]["namespace"] = workload_name
-                item["metadata"]["annotations"][
-                    "apps.open-cluster-management.io/git-branch"
-                ] = git_branch
-                item["metadata"]["annotations"][
-                    "apps.open-cluster-management.io/git-path"
-                ] = self.workload_details.path
+                item["metadata"]["annotations"]["apps.open-cluster-management.io/git-branch"] = git_branch
+                item["metadata"]["annotations"]["apps.open-cluster-management.io/git-path"] = self.workload_details.path
                 item["metadata"]["labels"]["app"] = workload_name
                 item["spec"]["channel"] = f"{channel}/{channel}"
-                item["spec"]["placement"]["placementRef"][
-                    "name"
-                ] = f"{workload_name}-placs"
+                item["spec"]["placement"]["placementRef"]["name"] = f"{workload_name}-placs"
 
             elif item["kind"] == "Placement":
                 item["metadata"]["labels"]["app"] = workload_name
                 item["metadata"]["name"] = f"{workload_name}-placs"
                 item["metadata"]["namespace"] = workload_name
-                item["spec"]["predicates"][0]["requiredClusterSelector"][
-                    "labelSelector"
-                ]["matchExpressions"][0]["values"][0] = workload_cluster
+                item["spec"]["predicates"][0]["requiredClusterSelector"]["labelSelector"]["matchExpressions"][0][
+                    "values"
+                ][0] = workload_cluster
                 item["spec"]["clusterSets"][0] = self.config.clusterset
 
                 if self.config.protect_workload == "yes":
@@ -1743,10 +1590,7 @@ class WorkloadDeployer:
                 item["metadata"]["name"] = self.config.clusterset
                 item["spec"]["clusterSet"] = self.config.clusterset
 
-            elif (
-                item["kind"] == "DRPlacementControl"
-                and self.config.protect_workload == "yes"
-            ):
+            elif item["kind"] == "DRPlacementControl" and self.config.protect_workload == "yes":
                 item["metadata"]["name"] = f"{workload_name}-placs-drpc"
                 item["metadata"]["namespace"] = workload_name
                 item["spec"]["drPolicyRef"]["name"] = policy_name
@@ -1765,9 +1609,7 @@ class WorkloadDeployer:
 
         # Filter out DRPC if protection is disabled
         if self.config.protect_workload != "yes":
-            updated_data = [
-                item for item in updated_data if item["kind"] != "DRPlacementControl"
-            ]
+            updated_data = [item for item in updated_data if item["kind"] != "DRPlacementControl"]
 
         return updated_data, workload_cluster
 
@@ -1778,11 +1620,7 @@ class WorkloadDeployer:
             return
 
         ns_prefix = f"{self.config.ns_dr_prefix}_" if self.config.ns_dr_prefix else ""
-        multi_suffix = (
-            f"_multi{self.config.multi_ns_workload}"
-            if self.config.multi_ns_workload > 1
-            else ""
-        )
+        multi_suffix = f"_multi{self.config.multi_ns_workload}" if self.config.multi_ns_workload > 1 else ""
 
         # Add VM type suffix if workload is VM
         vm_type_suffix = ""
